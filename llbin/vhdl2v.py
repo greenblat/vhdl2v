@@ -30,8 +30,8 @@ def main():
         Fname = sys.argv[1]
         os.system('llbin/cleanVhdl.py %s'%Fname)
         os.system('llbin/vhdllexer.py cleaned.vhd')
-        os.system('pybin/reworkMyLex.py lex.out lex2.out')
-        os.system('pybin/vyaccer2.py lex2.out')
+        os.system('llbin/reworkMyLex.py lex.out lex2.out')
+        os.system('llbin/vyaccer2.py lex2.out')
 
     info('starting vhdl2v by IliaG 4.sep.2018')
     File = open('db0.pickle')
