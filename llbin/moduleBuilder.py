@@ -38,7 +38,7 @@ def addWire(Name,Dir,From=0,To=0):
     if (type(From)==types.ListType)and(len(From)==1):
         From=From[0]
 
-    if (type(From)==types.ListType)and( From[0]=='enumlit'):
+    if (type(From)==types.ListType)and(len(From)>0)and( From[0]=='enumlit'):
         Bits = len(bin(len(From)-1))-2
         Wid = (Bits-1,0)
         Current.nets[Name] = (Dir,Wid)
@@ -67,7 +67,7 @@ def addWire(Name,Dir,From=0,To=0):
         Current.nets[Name] = (Dir,0)
         return
         
-    if type(From)==types.ListType:
+    if (type(From)==types.ListType)and(len(From)>1):
         if From[1]=='std_logic_vector':
             From = From[2]
             
@@ -81,7 +81,7 @@ def addWire(Name,Dir,From=0,To=0):
     try:
         X = From+To
     except:
-        logs.log_error('addWire got from=%s to=%s'%(From,To))
+        logs.log_error('addWire for %s got from=%s to=%s'%(Name,From,To))
         Current.nets[Name] = (Dir,(777,777))
         return
         

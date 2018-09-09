@@ -71,6 +71,9 @@ def extractClkRst(Top):
     Vars =  matches.matches(Top,['subbit', 'rising_edge', '?'])
     if Vars:
         return  ['edge','posedge',Vars[0]],False
+    Vars =  matches.matches(Top,['subbit', 'falling_edge', '?'])
+    if Vars:
+        return  ['edge','negedge',Vars[0]],False
         
     if len(Top)==4:
         Vars =  matches.matches(Top[1],'== ? ?')
@@ -93,8 +96,8 @@ def extractClkRst(Top):
                 return  CC,RR
             else:
                return False
-        logs.log_error('extractClkRst len==4 %s %s %s %s'%(Top[0],Top[1],Top[3][0],Top[3][1]))
-        return False
+            logs.log_error('extractClkRst (0)  len==4 %s %s %s %s'%(Top[0],Top[1],Top[3][0],Top[3][1]))
+            return False
     if len(Top)==3:
         Vars =  matches.matches(Top,['&', ['functioncall', 'edge', ['?']], ['==', '?', '?']])
         if Vars and (len(Vars)==3) and (Vars[0]==Vars[1]):
@@ -108,7 +111,7 @@ def extractClkRst(Top):
             return False
 
 
-    logs.log_error('extractClkRst len=%d %s'%(len(Top),str(Top)))
+#    logs.log_error('extractClkRst (1) len=%d %s'%(len(Top),str(Top)))
     return False
 
 

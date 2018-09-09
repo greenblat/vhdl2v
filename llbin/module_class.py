@@ -526,8 +526,8 @@ class module_class:
                     Ind0 = self.compute_int(Net[2][0])
                     Ind1 = self.compute_int(Net[2][1])
                 else:
-                    Ind0 = int(Net[2])
-                    Ind1 = int(Net[3])
+                    Ind0 = (Net[2])
+                    Ind1 = Net[3]
                 if Name not in self.nets:
                     logs.log_info('declared new bus, deduced from connections %s: wire [%s:%s] %s;'%(self.Module,Ind0,Ind1,Name))
                     self.add_sig(Name,'wire',(Ind0,Ind1))

@@ -3,6 +3,7 @@
 import string,sys,os,types
 import cProfile
 import traceback
+Style = 'old'
 def main():
     global Style
     Fname = sys.argv[1]

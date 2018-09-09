@@ -25,28 +25,44 @@ TYPES = {}
 
 DUMMY = [['RRRFFF','Identifier','9999','9999']]
 
+import cleanVhdl
+import vyaccer2
+import reworkMyLex
+import vhdllexer
+
 def main():
     if len(sys.argv)>1:
         Fname = sys.argv[1]
-        os.system('llbin/cleanVhdl.py %s'%Fname)
-        os.system('llbin/vhdllexer.py cleaned.vhd')
-        os.system('llbin/reworkMyLex.py lex.out lex2.out')
-        os.system('llbin/vyaccer2.py lex2.out')
+        cleanVhdl.run(Fname)
+        vhdllexer.run_lexer('cleaned.vhd','lex.out')
+        reworkMyLex.run('lex.out','lex2.out')
+        vyaccer2.run_yacc(False,'lex2.out','.','aaa.vhdl')
 
     info('starting vhdl2v by IliaG 4.sep.2018')
     File = open('db0.pickle')
     Adb = pickle.load(File)
+    reportAdb(Adb,'fff0')
+    print 'step0'
     cleanComas(Adb)
+    reportAdb(Adb,'fff1')
+    print 'step1'
     rounds0(Adb)
+    reportAdb(Adb,'fff2')
+    print 'step2'
     rounds1(Adb)
+    reportAdb(Adb,'fff3')
+    print 'step3'
 
     dones = 1
     while dones>0:
         dones = removeUnused(Adb)
+    print 'step4'
     scanStuff_new(Adb)
+    print 'step5'
     makeVerilog(Adb)
+    print 'step6'
     mod.dumpVerilog()
-    reportAdb(Adb,'fff')
+    reportAdb(Adb,'fff4')
 
 
 def cleanComas(Adb):
@@ -64,13 +80,16 @@ def cleanComas(Adb):
 def rounds0(Adb):
     while True:
         Bef = len(Adb.keys())
+        info('rounds0 bef=%d'%Bef)
         oneRound0(Adb)
         Aft = len(Adb.keys())
+        info('rounds0 aft %d -> %d'%(Bef,Aft))
         if Aft==Bef: return
 
 
 def oneRound0(Adb):
     F0,F4 = findEnds(Adb)
+    info('oneRound0 f0=%d f4=%d'%(len(F0),len(F4)))
     useF0_F4(Adb,F0,F4)
     return Adb
 def useF0_F4(Adb,F0,F4):
@@ -87,15 +106,24 @@ def useF0_F4(Adb,F0,F4):
 
 
 def simplify0(Old,F0,F4):
-    New = Old[:]
-    for Key in F0:
-        if Key in New:
-            Ind = New.index(Key)
-            New.pop(Ind)
-    for Key in F4:
-        if Key in New:
-            Ind = New.index(Key)
-            New[Ind]=F4[Key]
+    New = []
+    for ind,Key in enumerate(Old):
+        if Key not in F0:
+            New.append(Key)
+            
+#    for Key in F0:
+#        if Key in New:
+#            Ind = New.index(Key)
+#            New.pop(Ind)
+
+    for ind,Key in enumerate(New):
+        if Key in F4:
+            New[ind]=F4[Key]
+            
+#    for Key in F4:
+#        if Key in New:
+#            Ind = New.index(Key)
+#            New[Ind]=F4[Key]
     return New
 
 def removeUnused(Adb):
@@ -122,11 +150,12 @@ def findEnds(Adb):
     F4 = {}
     F0 = []
     for Key in Adb.keys():
-        Val = Adb[Key]
-        if (len(Val)==1)and(len(Val[0])==4):
-            F4[Key] = Val[0]
-        if (Val==[]):
-            F0.append(Key)
+        if Key[0] not in ['enumeration_literal','...enumeration_literal..']:
+            Val = Adb[Key]
+            if (len(Val)==1)and(len(Val[0])==4):
+                F4[Key] = Val[0]
+            if (Val==[]):
+                F0.append(Key)
     return F0,F4
 
 def rounds1(Adb):
@@ -196,10 +225,6 @@ def workOnItem(Item,Adb):
     elif matches(List,"USE ?"):
         pass
     else: 
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END ?')
-        if Vars:
-            architecture_new(1,Vars,Adb)
-            return
         Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END')
         if Vars:
             architecture_new(1,Vars,Adb)
@@ -214,29 +239,13 @@ def workOnItem(Item,Adb):
         if Vars:
             architecture_new(0,Vars,Adb)
             return
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS !architecture_declarative_part BEGIN_ !architecture_statement_part END ?')
-        if Vars:
-            architecture_new(0,Vars,Adb)
-            return
 
         Vars = matches(List,'ENTITY ? IS !.generic_clause. !.port_clause. END')
         if Vars:
             entity_new(0,Vars,Adb)
             return
-        Vars = matches(List,'ENTITY ? IS !.generic_clause. !.port_clause. END ?')
-        if Vars:
-            entity_new(0,Vars,Adb)
-            return
-        Vars = matches(List,'ENTITY ? IS !.generic_clause. !.port_clause. END ENTITY ? ')
-        if Vars:
-            entity_new(0,Vars,Adb)
-            return
 
-        Vars = matches(List,'ENTITY ? IS !.port_clause. END ENTITY ?')
-        if Vars:
-            entity_new(1,Vars,Adb)
-            return
-        Vars = matches(List,'ENTITY ? IS !.port_clause. END ?')
+        Vars = matches(List,'ENTITY ? IS !.port_clause. END')
         if Vars:
             entity_new(1,Vars,Adb)
             return
@@ -249,7 +258,6 @@ def workOnItem(Item,Adb):
         if Vars:
             package_new(Vars,Adb)
             return
-#        justify(List,'PACKAGE BODY ? IS !package_declarative_part END ?')
         logs.log_error('dont know to treat "%s"'%str(List))
     
 
@@ -392,6 +400,23 @@ def getList_new__(Item,Adb):
         return [('<=',Dst,Expr)]
 
 
+    Vars = matches(Item,'RECORD !element_declaration !..element_declaration.. END RECORD')
+    if Vars:
+        AA = getRecordElem(Adb[Vars[0]],Adb) 
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return [('record',[AA]+BB)]
+
+    Vars = matches(Item,'RECORD !element_declaration END RECORD')
+    if Vars:
+        BB = getRecordElem(Adb[Vars[0]],Adb)
+        return [('record',[BB])]
+
+    Vars = matches(Item,'!..element_declaration.. !element_declaration')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb) 
+        BB = getRecordElem(Adb[Vars[1]],Adb)
+        return AA+[BB]
+
     Vars = matches(Item,'ALIAS ? Colon ? IS ?')
     if Vars:
         Alias = getExpr(Vars[0],Adb)
@@ -440,20 +465,20 @@ def getList_new__(Item,Adb):
         Expr = getVarAsgn(Adb[Vars[2]],Adb)
         return [('var_assign',Vars[0][0],Vars[1][0],Expr)]
 
-    Vars = matches(Item,'? Colon IN std_logic')
-    if Vars:
-        LL = getExpr(Vars[0],Adb)
-        return [('input',LL,0)]
-
-    Vars = matches(Item,'? Colon BUFFER std_logic')
-    if Vars:
-        LL = getExpr(Vars[0],Adb)
-        return [('output',LL,0)]
-
-    Vars = matches(Item,'? Colon OUT std_logic')
-    if Vars:
-        LL = getExpr(Vars[0],Adb)
-        return [('output',LL,0)]
+#    Vars = matches(Item,'? Colon IN std_logic')
+#    if Vars:
+#        LL = getExpr(Vars[0],Adb)
+#        return [('input',LL,0)]
+#
+#    Vars = matches(Item,'? Colon BUFFER std_logic')
+#    if Vars:
+#        LL = getExpr(Vars[0],Adb)
+#        return [('output',LL,0)]
+#
+#    Vars = matches(Item,'? Colon OUT std_logic')
+#    if Vars:
+#        LL = getExpr(Vars[0],Adb)
+#        return [('output',LL,0)]
 
     Vars = matches(Item,'? Colon ?dir  ?wire  !.constraint.')
     if Vars:
@@ -465,17 +490,24 @@ def getList_new__(Item,Adb):
 #    if Vars:
 #        LL = getExpr(Vars[0],Adb)
 #        return [('output',LL,getConstraint(Adb[Vars[1]],Adb))]
+#
+#    Vars = matches(Item,'? Colon BUFFER std_logic_vector !.constraint.')
+#    if Vars:
+#        LL = getExpr(Vars[0],Adb)
+#        return [('output',LL,getConstraint(Adb[Vars[1]],Adb))]
+#
+#
+#    Vars = matches(Item,'? Colon IN std_logic_vector !.constraint.')
+#    if Vars:
+#        LL = getExpr(Vars[0],Adb)
+#        return [('input',LL,getConstraint(Adb[Vars[1]],Adb))]
 
-    Vars = matches(Item,'? Colon BUFFER std_logic_vector !.constraint.')
+    Vars = matches(Item,'? Colon ?dir ?')
     if Vars:
         LL = getExpr(Vars[0],Adb)
-        return [('output',LL,getConstraint(Adb[Vars[1]],Adb))]
-
-
-    Vars = matches(Item,'? Colon IN std_logic_vector !.constraint.')
-    if Vars:
-        LL = getExpr(Vars[0],Adb)
-        return [('input',LL,getConstraint(Adb[Vars[1]],Adb))]
+        Dir = helpers.verilogDir[Vars[1]]
+        Kind = getExpr(Vars[2],Adb)
+        return [(Dir,LL,Kind)]
 
     Vars = matches(Item,'SIGNAL ? Colon ? !.VarAsgn__expression.')
     if Vars:
@@ -540,11 +572,29 @@ def getList_new__(Item,Adb):
         LL = getList_new(Adb[Vars[0]],Adb)
         return [('port',LL)]
 
+
     Vars = matches(Item,'LeftParen !signal_list RightParen')
     if Vars:
         LL = getList_new(Adb[Vars[0]],Adb)
         return [('signal_list',LL)]
 
+    Vars = matches(Item,'!...enumeration_literal.. !enumeration_literal' )
+    if Vars:
+        AA = getExpr(Vars[1],Adb)
+        BB = getList_new(Adb[Vars[0]],Adb)
+        LL = mergeToList(BB,[AA],'enumlit')
+        return LL
+
+    if Item==[]: return []
+
+
+    Vars = matches(Item,'LeftParen !enumeration_literal !...enumeration_literal.. RightParen')
+    if Vars:
+        AA = getExpr(Vars[0],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        LL = mergeToList([AA],BB,'enumlit')
+        return LL
+    
     Vars = matches(Item,'LeftParen ? !...enumeration_literal.. RightParen')
     if Vars:
         AA = getExpr(Vars[0],Adb)
@@ -589,6 +639,10 @@ def getList_new__(Item,Adb):
     if Vars:
         Cond = getExpr(Adb[Vars[0]],Adb)
         return [('if',Cond)]
+
+    Vars = matches(Item,'IF !condition THEN END IF')
+    if Vars:
+        return []
 
     Vars = matches(Item,'IF !condition THEN !sequence_of_statements END IF')
     if Vars:
@@ -691,26 +745,12 @@ def getList_new__(Item,Adb):
         Stats = getList_new(Adb[Vars[1]],Adb)
         return [('process',[],Sense,Stats)]
 
-    Vars = matches(Item,'PROCESS !.sensitivity_list. BEGIN_ !sequence_of_statements END PROCESS ?')
-    if Vars:
-        Sense = getList_new(Adb[Vars[0]],Adb)
-        Stats = getList_new(Adb[Vars[1]],Adb)
-        return [('process',[],Sense,Stats)]
-
     Vars = matches(Item,'PROCESS !.sensitivity_list. !process_declarative_part BEGIN_ !sequence_of_statements END PROCESS')
     if Vars:
         Sense = getList_new(Adb[Vars[0]],Adb)
         Declares = getList_new(Adb[Vars[1]],Adb)
         Stats = getList_new(Adb[Vars[2]],Adb)
         return [('process',Declares,Sense,Stats)]
-
-    Vars = matches(Item,'PROCESS !.sensitivity_list. !process_declarative_part BEGIN_ !sequence_of_statements END PROCESS ?')
-    if Vars:
-        Sense = getList_new(Adb[Vars[0]],Adb)
-        Declares = getList_new(Adb[Vars[1]],Adb)
-        Stats = getList_new(Adb[Vars[2]],Adb)
-        return [('process',Declares,Sense,Stats)]
-
 
     Vars = matches(Item,'PROCESS !process_declarative_part BEGIN_ !sequence_of_statements END PROCESS')
     if Vars:
@@ -776,13 +816,16 @@ def getList_new__(Item,Adb):
     if Vars:
         return [getExpr(Vars[0],Adb),getExpr(Vars[1],Adb)]
 
-#    justify(Item,'PROCESS !.sensitivity_list. BEGIN_ !sequence_of_statements END PROCESS')
-#    justify(Item,'ARRAY LeftParen !index_subtype_definition  RightParen OF !subtype_indication')
 
     logs.log_error('getList_new failed on "%s"'%str(Item))
     reportTrace(TRACE)
     return []
 
+def getRecordElem(List,Adb): 
+    Vars = matches(List,'? Colon ?')
+    Name = getExpr(Vars[0],Adb)
+    Kind = getExpr(Vars[1],Adb)
+    return (Name,Kind)
 
 def getSubtype(List,Adb):
     Vars = matches(List,'unsigned !.constraint.')
@@ -1118,7 +1161,7 @@ def addWire(Net,Wid):
    
 def justify(List,Seq):
     Lseq = string.split(Seq)
-    logs.log_info('justify %d<>%d %s %s'%(len(List),len(Lseq),Seq,List))
+    logs.log_info('start justify %d  %d %s %s'%(len(List),len(Lseq),Seq,List))
     if len(List)!=len(Lseq): 
         logs.log_info('justify %d<>%d %s %s'%(len(List),len(Lseq),Seq,List))
         return 
@@ -1188,12 +1231,16 @@ def getExpr__(Root,Adb):
     if type(Root)==types.IntType: return Root
     if (len(Root)==4)and(Root[1]=='literal'): return ['bin',1,Root[0][1:-1]]
     if (len(Root)==4)and(Root[1]=='Identifier'): return string.lower(Root[0])
+    if (len(Root)==4)and(Root[1]=='DOTTED'): return string.lower(Root[0])
     if (len(Root)==4)and(Root[1]=='DecimalInt'): return int(Root[0])
     if (len(Root)==4)and(Root[1]=='BasedInt'): 
         Str = Root[0]
         if Str[0]=='x':
             Val = Str[2:-1]
             return ['hex',4*(len(Str)-3),Val]
+        if Str[0]=='b':
+            Val = Str[2:-1]
+            return ['bin',(len(Str)-3),Val]
         logs.log_error('getExpr of BasedInt got %s'%Str)
         return 0
 
@@ -1224,7 +1271,6 @@ def getExpr__(Root,Adb):
     Vars = matches(Root,'!choice =>  ?')
     if Vars:
         Ch = getExpr(Vars[0],Adb)
-        info('>>>>>>>>>> %s %s'%(Ch,str(Vars)))
         return  Ch
 
 
@@ -1293,6 +1339,7 @@ def getExpr__(Root,Adb):
         Cond = getExpr(Vars[0],Adb)
         Range = getExpr(Vars[1],Adb)
         return ('for',Cond,Range)
+
     Vars =  matches(Root,"? LeftParen ? !...element_association.. RightParen")
     if Vars:
         Y = getExpr(Vars[1],Adb)
@@ -1309,6 +1356,13 @@ def getExpr__(Root,Adb):
         X = Vars[1][0]
         Y = getExpr(Adb[Vars[0]],Adb)
         return ('elem',Y,X)
+
+    Vars =  matches(Root,"? LeftParen ? ? RightParen")
+    if Vars:
+        Func = getExpr(Vars[0],Adb)
+        Op0 = getExpr(Vars[1],Adb)
+        Op1 = getExpr(Vars[2],Adb)
+        return [('funccall',Func,[Op0,Op1])]
 
     if (len(Root)==2)and(type(Root)==types.ListType):
         if (Root[0][1] in ['DecimalInt','BasedInt'])and(Root[0][1] in ['DecimalInt','BasedInt']):
@@ -1488,6 +1542,7 @@ def __reworkWHENELSE(Expr):
 
 
 def bothIdentifiers(LL):
+    if len(LL)!=2: return False
     if not listtuple(LL): return False
     for Item in LL:
         if Item[1]!='Identifier': return False
