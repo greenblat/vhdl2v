@@ -112,10 +112,13 @@ def addSoftAssign(Dst,Src):
     addSeq(('<=',Dst,Src))
 
 def addHardAssign(Dst,Src):
-    if Src[0] == '"':
-        Src = Src[1:-1]
-        Src = ['bin',len(Src),Src]
+    if type(Src)==types.StringType:
+        if Src[0] == '"':
+            Src = Src[1:-1]
+            Src = ['bin',len(Src),Src]
+    Bef=Src
     Src = reworkExpr(Src)
+    print 'src',Src,type(Src),Bef,type(Bef)
     Dst = reworkExpr(Dst)
     Current.add_hard_assign(Dst,Src)
 
@@ -142,6 +145,7 @@ def dumpVerilog(Fname='modulevhd'):
         MODULES[Mod].dump()
         MODULES[Mod].dump_verilog(Fout)
     Fout.close()
+    MODULES[Mod].dump()
 
 GROW  = []
 def getSequence():

@@ -225,12 +225,12 @@ def workOnItem(Item,Adb):
     elif matches(List,"USE ?"):
         pass
     else: 
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END')
+        Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END ?')
         if Vars:
             architecture_new(1,Vars,Adb)
             return
 
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS !architecture_declarative_part BEGIN_ !architecture_statement_part END ARCHITECTURE')
+        Vars = matches(List,'ARCHITECTURE ? OF ? IS !architecture_declarative_part BEGIN_ !architecture_statement_part END ?')
         if Vars:
             architecture_new(0,Vars,Adb)
             return
@@ -869,11 +869,8 @@ def getVarAsgn(List,Adb):
     Vars = matches(List,':= ?')
     if Vars:
         Item = Vars[0]
-        if len(Item)==2:
-            LL = Adb[Item]
-            Expr = getExpr(LL,Adb)
-            return 0
-        return Item[0]
+        Expr = getExpr(Item,Adb)
+        return Expr
     logs.log_error('getVarAsgn failed on "%s"'%(str(List)))
     return 0
 
@@ -1111,7 +1108,7 @@ def treatSignals(L1,Module,Adb):
             Wid = Item[2]
             Val = Item[3]
             addWire(Net,Wid)
-            mod.addHardAssign(Net,str(Val))
+            mod.addHardAssign(Net,Val)
         elif Item[0]=='port_map':
             Type = Item[1]
             Ports = Item[2]
