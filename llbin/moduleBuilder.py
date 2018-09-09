@@ -118,7 +118,6 @@ def addHardAssign(Dst,Src):
             Src = ['bin',len(Src),Src]
     Bef=Src
     Src = reworkExpr(Src)
-    print 'src',Src,type(Src),Bef,type(Bef)
     Dst = reworkExpr(Dst)
     Current.add_hard_assign(Dst,Src)
 

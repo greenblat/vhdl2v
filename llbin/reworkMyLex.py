@@ -42,6 +42,11 @@ def keepWindow(Line,Fout,Flush=False):
             WINDOW.pop(2)
     if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
             WINDOW.pop(1)
+    if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[1]=='Identifier'):
+            WINDOW.pop(1)
+    if (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
+        WINDOW.pop(2)
+        WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
 
 
 LIST0 = string.split('''
