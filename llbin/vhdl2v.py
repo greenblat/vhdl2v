@@ -1345,14 +1345,17 @@ def getExpr__(Root,Adb):
 
     Vars =  matches(Root,"LeftParen ? !...element_association.. RightParen")
     if Vars:
-        X = Vars[0][0]
-        Y = getExpr(Adb[Vars[1]],Adb)
-        return ('elem',X,Y)
+        AA = Vars[0][0]
+        BB = getExpr(Adb[Vars[1]],Adb)
+        LL = mergeToList([AA],BB,'elem')
+        return LL
     Vars =  matches(Root,"!...element_association.. ?")
     if Vars:
-        X = Vars[1][0]
-        Y = getExpr(Adb[Vars[0]],Adb)
-        return ('elem',Y,X)
+
+        AA = Vars[1][0]
+        BB = getExpr(Adb[Vars[0]],Adb)
+        LL = mergeToList(BB,[AA],'elem')
+        return LL
 
     Vars =  matches(Root,"? LeftParen ? ? RightParen")
     if Vars:
@@ -1363,7 +1366,7 @@ def getExpr__(Root,Adb):
 
     if (len(Root)==2)and(type(Root)==types.ListType):
         if (Root[0][1] in ['DecimalInt','BasedInt'])and(Root[0][1] in ['DecimalInt','BasedInt']):
-            return ('tuple',Root[0][0],Root[1][0])
+            return ['elem',Root[0][0],Root[1][0]]
 
     Vars = matches(Root,'? WHEN ? ELSE ?')
     if Vars:
@@ -1553,7 +1556,6 @@ def mergeToList(AA,BB,List='list'):
         if (BB!=[]) and (BB[0]==List): BB=BB[1:]
     if type(AA)==types.ListType:
         if (AA!=[])and(AA[0]==List): AA=AA[1:]
-
     Res = [List]+AA+BB
     return  Res
 
