@@ -1350,6 +1350,7 @@ local_generic_element
 	  .IN.
 	  type_mark
 	  .constraint.
+      .VarAsgn__expression.
 	;
 
 /*
@@ -2461,7 +2462,6 @@ unlabeled_selected_signal_assignment
 component_instantiation_statement
 	: a_label
 	   /* Identifier */
-      MaybeEntity
 	   name  
 	  .generic_map_aspect.
 	  .port_map_aspect.

@@ -209,6 +209,8 @@ class module_class:
             File.write('    task %s\n'%(Func,self.tasks[Func]))
         for Alw in self.alwayses:
             File.write('    always %s\n'%(str(Alw)))
+        for Alw in self.generates:
+            File.write('    generate %s\n'%(str(Alw)))
         for Inst in self.insts:
             self.insts[Inst].dump(File)
         File.write('endmodule\n')

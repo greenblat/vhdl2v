@@ -47,6 +47,13 @@ def addWire(Name,Dir,From=0,To=0):
 
         return
 
+    Vars = matches.matches(From,['array', ['range', '?', '?'], 'std_logic'])
+    if Vars:
+        Wid = (Vars[0], Vars[1])
+        Current.nets[Name] = (Dir,Wid)
+        return
+
+
     Vars = matches.matches(From,('array', ('range', '?', '?'), ('std_logic_vector', ('?', '?'))))
     if Vars:
         Wid = ('double', (Vars[2], Vars[3]), (Vars[0], Vars[1]))
@@ -59,9 +66,10 @@ def addWire(Name,Dir,From=0,To=0):
         return
 
     if type(From)==types.TupleType:
-        From,To = From
-        Current.nets[Name] = (Dir,(From,To))
-        return
+        if len(From)==2:
+            From,To = From
+            Current.nets[Name] = (Dir,(From,To))
+            return
         
     if From=='std_logic':
         Current.nets[Name] = (Dir,0)
@@ -126,7 +134,20 @@ def addInstance(Inst,Type):
 def add_instance_param(Inst,Param,Val):
     Current.add_inst_param(Inst,Param,Val)
 def add_conn(Inst,Pin,Sig):
+    if type(Pin)!=types.StringType:
+        logs.log_error('add_con to %s got pin=%s sig=%s'%(Inst,Pin,Sig))
+        return
     Current.add_conn(Inst,Pin,Sig)
+
+
+def addGenerate(Cond,Body):
+    Vars = matches.matches(Cond,['for','?',[ 'to','?','?']])
+    if Vars:
+        Var = Vars[0]
+        Bodyx = reworkExpr(Body)
+        Current.add_generate(['for',['=', Var, Vars[1]], ['<', Var, Vars[2]], ['=', Var, ['+', Var, 1]],Bodyx])
+        return
+    logs.log_error('addGenerate of %s and %s failed'%(Cond,Body))
 
 
 def addAlways(Always):
@@ -143,8 +164,8 @@ def dumpVerilog(Fname='modulevhd'):
         pacifierVerilog.pacifier(MODULES[Mod])
         MODULES[Mod].dump()
         MODULES[Mod].dump_verilog(Fout)
+        MODULES[Mod].dump()
     Fout.close()
-    MODULES[Mod].dump()
 
 GROW  = []
 def getSequence():

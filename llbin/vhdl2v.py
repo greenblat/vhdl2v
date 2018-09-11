@@ -22,6 +22,7 @@ info = logs.log_info
 ENTITIES={}
 ARCHITECTURES={}
 TYPES = {}
+COMPONENTS ={}
 
 DUMMY = [['RRRFFF','Identifier','9999','9999']]
 
@@ -315,7 +316,19 @@ def getList_new__(Item,Adb):
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
         return [AA]+BB
+
+    Vars = matches(Item,'!local_generic_element !...local_generic_element..')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return [AA]+BB
+
     Vars = matches(Item,'!...formal_generic_element.. !formal_generic_element')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return AA+[BB]
+    Vars = matches(Item,'!...local_generic_element.. !local_generic_element')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
@@ -326,23 +339,26 @@ def getList_new__(Item,Adb):
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
         return [AA]+BB
-    Vars = matches(Item,'!...formal_port_element.. !formal_port_element')
-    if Vars:
-        AA = getList_new(Adb[Vars[0]],Adb)
-        BB = getList_new(Adb[Vars[1]],Adb)
-        return AA+[BB]
 
     Vars = matches(Item,'!local_port_element !...local_port_element..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
-        return AA+[BB]
-
+        LL = AA+BB
+        return LL
     Vars = matches(Item,'!...local_port_element.. !local_port_element')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
-        return [AA]+BB
+        return AA+BB
+
+    Vars = matches(Item,'!...formal_port_element.. !formal_port_element')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        LL =  AA+BB
+        return LL
+
 
     Vars = matches(Item,'!..block_declarative_item.. !block_declarative_item')
     if Vars:
@@ -450,7 +466,15 @@ def getList_new__(Item,Adb):
     Vars = matches(Item,'!generation_scheme GENERATE !set_of_statements END GENERATE')
     if Vars:
         LL = getList_new(Adb[Vars[1]],Adb)
-        Sch = getList_new(Adb[Vars[0]],Adb)
+        What = Adb[Vars[0]]
+        if What[0][0]=='FOR':
+            if What[1] in Adb:
+                X = [('FOR','FOR',0,0)]+Adb[What[1]]
+                Sch = getExpr(X,Adb)
+            else:
+                Sch = getList_new(What[1],Adb)
+        else:            
+            Sch = getList_new(Adb[Vars[0]],Adb)
         return [('generate',Sch,LL)]
 
     Vars = matches(Item,'? Colon ? !.constraint. !.VarAsgn__expression.')
@@ -570,7 +594,7 @@ def getList_new__(Item,Adb):
     Vars = matches(Item,'PORT LeftParen !local_port_list RightParen')
     if Vars:
         LL = getList_new(Adb[Vars[0]],Adb)
-        return [('port',LL)]
+        return LL
 
 
     Vars = matches(Item,'LeftParen !signal_list RightParen')
@@ -724,20 +748,35 @@ def getList_new__(Item,Adb):
         Subtype = getSubtype(Adb[Vars[1]],Adb)
         return [('variable',Vars[0][0],Subtype)]
 
-    Vars = matches(Item,'VARIABLE ? Colon !subtype_indication')
+    Vars = matches(Item,'VARIABLE ? Colon !subtype_indication !.VarAsgn__expression.')
     if Vars:
         Subtype = getSubtype(Adb[Vars[1]],Adb)
-        return [('variable',Vars[0][0],Subtype)]
+        Assign = getExpr(Adb[Vars[2]],Adb)
+        return [('variable',Vars[0][0],Subtype,Assign)]
 
     Vars = matches(Item,'VARIABLE ? Colon ?')
     if Vars:
         Expr = getExpr(Vars[1],Adb)
         return [('variable',Vars[0][0],Expr)]
 
+    Vars = matches(Item,'GENERIC LeftParen !local_generic_list RightParen')
+    if Vars:
+        return getList_new(Adb[Vars[0]],Adb)
+
+    Vars = matches(Item,'COMPONENT ? !.GENERIC__local_generic_list. !.PORT__local_port_list.  END COMPONENT')
+    if Vars:
+        Gens = getList_new(Adb[Vars[1]],Adb)
+        Conns = getList_new(Adb[Vars[2]],Adb)
+        if Conns[0]=='port': Conns.pop(0)
+        COMPONENTS[Vars[0][0]] = (Conns,Gens)
+        return []
+
     Vars = matches(Item,'COMPONENT ? !.PORT__local_port_list.  END COMPONENT')
     if Vars:
-        LL = getList_new(Adb[Vars[1]],Adb)
-        return [('port_map',Vars[0][0],LL)]
+        Conns = getList_new(Adb[Vars[1]],Adb)
+        if Conns[0]=='port': Conns.pop(0)
+        COMPONENTS[Vars[0][0]] = (Conns,[])
+        return []
 
     Vars = matches(Item,'PROCESS !.sensitivity_list. BEGIN_ !sequence_of_statements END PROCESS')
     if Vars:
@@ -772,11 +811,22 @@ def getList_new__(Item,Adb):
         Subtype = getSubtype(Adb[Vars[1]],Adb)
         logs.log_info('subtype %s'%(str(Subtype)))
         return [('array',Index,Subtype)]
+    Vars = matches(Item,'ARRAY LeftParen !index_subtype_definition  RightParen OF ?')
+    if Vars:
+        Index = getConstraint(Adb[Vars[0]],Adb)
+        Subtype = getExpr(Adb[Vars[1]],Adb)
+        return [('array',Index,Subtype)]
+
     Vars = matches(Item,'ARRAY !index_constraint OF !subtype_indication')
     if Vars:
         Index = getConstraint(Adb[Vars[0]],Adb)
         Subtype = getSubtype(Adb[Vars[1]],Adb)
-        logs.log_info('subtype %s'%(str(Subtype)))
+        return [('array',Index,Subtype)]
+
+    Vars = matches(Item,'ARRAY !index_constraint OF ?')
+    if Vars:
+        Index = getConstraint(Adb[Vars[0]],Adb)
+        Subtype = getExpr(Vars[1],Adb)
         return [('array',Index,Subtype)]
 
     Vars = matches(Item,'!.iteration_scheme. LOOP !sequence_of_statements END LOOP')
@@ -904,6 +954,11 @@ def getConstraint(List,Adb):
             From = getExpr(Vars2[0],Adb)
             To = getExpr(Vars2[1],Adb)
             return ('range',From,To)
+        Vars2 =  matches(Range,'? DOWNTO ?')
+        if Vars2:
+            From = getExpr(Vars2[0],Adb)
+            To = getExpr(Vars2[1],Adb)
+            return ('range',From,To)
 
         logs.log_error('discrete range %s'%(Range))
         return 0
@@ -989,13 +1044,35 @@ def treatBody(L2,Module):
                     mod.add_instance_param(Inst,PV[1],PV[2])
                 else:
                     logs.log_error('add_param_inst failed on "%s"'%(str(PV)))
-
-            for PV in Ports:
+            if Type in COMPONENTS:
+                Pins = COMPONENTS[Type][0]
+            else:
+                Pins = []
+            for ind,PV in enumerate(Ports):
                 if len(PV)==1: PV=PV[0]
                 if PV[0]=='=>':
                     mod.add_conn(Inst,PV[1],PV[2])
+                elif (type(PV)==types.StringType):
+                    if ind<len(Pins):
+                        Pin = Pins[ind][1]
+                        mod.add_conn(Inst,Pin,PV)
+                    else:
+                        logs.log_error('connection #%d (%d)  does not exist in %s %s (%s)'%(ind,len(Pins),Type,Inst,PV))
+                elif (PV[0]=='assoc'):
+                    if ind<len(Pins):
+                        Pin = Pins[ind][1]
+                        mod.add_conn(Inst,Pin,PV[1])
+                    else:
+                        logs.log_error('connection #%d (%d)  does not exist in %s %s (%s)'%(ind,len(Pins),Type,Inst,PV))
+                elif (PV[0] in ['bin','hex']):
+                    if ind<len(Pins):
+                        Pin = Pins[ind][1]
+                        mod.add_conn(Inst,Pin,PV)
+                    else:
+                        logs.log_error('connection #%d (%d)  does not exist in %s %s (%s)'%(ind,len(Pins),Type,Inst,PV))
+                    
                 else:
-                    logs.log_error('add_conn failed on "%s"'%(str(PV)))
+                    logs.log_error('add_conn failed on %s %s "%s"'%(Inst,Type,str(PV)))
         elif Item[0]=='process':
             Stop=False
             if len(Item)==4:
@@ -1034,11 +1111,63 @@ def treatBody(L2,Module):
                     logs.log_error('process "%s" body has %d len'%(Label,len(Body)))
         elif Item[0]=='generate':
             Label = Item[1]
-            Cond = Item[2][0][1]
-            Body = Item[2][0][2]
-            info('generate %s cond=%s body=%s'%(Label,Cond,Body))
+            try:
+                Cond = Item[2][0][1]
+                Body = Item[2][0][2]
+                Flow = treatGenBody(Body)
+                mod.addGenerate(Cond,Flow)
+            except:
+                logs.log_error('FAILED! generate %s %s '%(Label,Item))
         else:
             logs.log_error('treatBody failed on "%s"'%(str(Item)))
+
+
+def treatGenBody(Body):
+    LL = []
+    for Item in Body:
+        if Item[0]=='process':
+            Stop=False
+            if len(Item)==4:
+                Label = ''
+                Variables = getVarsList('',Item[1])
+                Sense = getSenseList(Item[2])
+                Flow = getProcessBody(Item[3])
+                LL.append(['always',[],['list']+Sense,Flow])
+                Stop=True
+            elif len(Item)==5:
+                Label = Item[1]
+                Variables = getVarsList('',Item[2])
+                Sense = getSenseList(Item[3])
+                Flow = getProcessBody(Item[4])
+                Flow = useRenames(Variables,Flow)
+                LL.append(['always',[],['list']+Sense,Flow])
+                Stop=True
+            elif len(Item)==3:
+                Body0 = Item[2]
+            else:
+                logs.log_error('process has %d len'%len(Item))
+                Stop=True
+
+            if (not Stop):
+                if len(Body0)==0:
+                    logs.log_error('process "%s" has no body'%str(Label))
+                    Body = []
+                else:
+                    Body = Body0[0]
+                if len(Body)==4:
+                    Newvars = getNewVars(Body[1])
+                    Sense = getSenseList(Body[2])
+                    Flow = getProcessBody(Body[3])
+                    LL.append(['always',Newvars,['list']+Sense,Flow])
+                else:
+                    logs.log_error('process "%s" body has %d len'%(Label,len(Body)))
+            
+        else:
+            logs.log_error('treatGenBody failed item on "%s"'%str(Item))
+    logs.log_error('treatGenBody failed on "%s"'%str(Body))
+    return LL
+
+
 
 def addAlways(Vars,Sense,Body):  
     mod.addAlways([Sense,Body,'always'])
@@ -1064,7 +1193,7 @@ def getVarsList(Label,List):
     LL = []
     for Item in List:
         if (type(Item)==types.ListType)and(len(Item)==1): Item=Item[0]
-        if (Item[0]=='variable'):
+        if (len(Item)>0)and(Item[0]=='variable'):
             addWire(Label+Item[1],Item[2])
             if Label!='':
                 LL.append((Item[1],Label+'_'+Item[1]))
@@ -1080,6 +1209,8 @@ def getSenseList(List):
         elif Item[0]=='signal_list':
             More = getSenseList(Item[1])
             LL.extend(More)
+        elif Item[0]=='subbit':
+            LL.append(Item[1])
         else:
             logs.log_error('getSenseList got %s'%str(List))
     return LL
@@ -1093,7 +1224,9 @@ def getProcessBody(List):
 def treatSignals(L1,Module,Adb):
     for Item in L1:
         if len(Item)==1: Item=Item[0]
-        if Item[0]=='signal':
+        if Item==[]:
+            pass
+        elif Item[0]=='signal':
             Sigs = Item[1]
             Wid = Item[2]
             if type(Sigs)==types.ListType:
@@ -1232,10 +1365,10 @@ def getExpr__(Root,Adb):
     if (len(Root)==4)and(Root[1]=='DecimalInt'): return int(Root[0])
     if (len(Root)==4)and(Root[1]=='BasedInt'): 
         Str = Root[0]
-        if Str[0]=='x':
+        if Str[0] in ['x','X']:
             Val = Str[2:-1]
             return ['hex',4*(len(Str)-3),Val]
-        if Str[0]=='b':
+        if Str[0]==['b','B']:
             Val = Str[2:-1]
             return ['bin',(len(Str)-3),Val]
         logs.log_error('getExpr of BasedInt got %s'%Str)

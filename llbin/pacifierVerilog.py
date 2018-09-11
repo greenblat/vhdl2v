@@ -34,10 +34,7 @@ def alwayses(Mod):
             else:
                 Always[0]='*'
 
-
         elif (len(Always[1])==3)and(Always[1][0]=='if'):
-            print '>>>>>>>3if',Always[1][1]
-
             ClkRst = extractClkRst(Always[1][1])
             if (ClkRst):
                 Always[0]= ClkRst[0]

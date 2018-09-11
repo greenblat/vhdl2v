@@ -81,7 +81,6 @@ def readlexfile(Flexname):
             wrd0=string.join(wrds1,' ')
             Lex.append(tuple([wrd0]+wrds2))
 
-Verbose=False
 def run_machine():
     state='0'
     Steps =0

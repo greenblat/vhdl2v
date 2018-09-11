@@ -38,7 +38,7 @@ def keepWindow(Line,Fout,Flush=False):
     wrds2 =  string.split(WINDOW[2])
     wrds3 =  string.split(WINDOW[3])
     if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
-        if wrds1[0] in string.split('ENTITY ARCHTECTURE PROCESS CASE'):
+        if wrds1[0] in string.split('ENTITY ARCHTECTURE PROCESS CASE GENERATE'):
             WINDOW.pop(2)
     if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
             WINDOW.pop(1)
@@ -47,6 +47,10 @@ def keepWindow(Line,Fout,Flush=False):
     if (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
         WINDOW.pop(2)
         WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
+    if (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
+        WINDOW.pop(2)
+
+
 
 
 LIST0 = string.split('''
