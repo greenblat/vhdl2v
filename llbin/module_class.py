@@ -2,7 +2,7 @@ import types,string,sys,os
 import logs
 import traceback
 
-MathOps = string.split('~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&')
+MathOps = string.split('~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&')
 class module_class:
     def __init__(self,Name,Kind='module'):
         self.Module=Name
@@ -504,7 +504,7 @@ class module_class:
                 return
             if Net[0]=='sub_slice':
                 return
-            if Net[0]=='functioncall':
+            if Net[0] in ['functioncall','funccall']:
                 return
             if Net[0]=='subbit':
                 Name = Net[1]
@@ -1027,7 +1027,7 @@ def pr_stmt(List,Pref='',Begin=False):
             Cond = clean_br(pr_expr(List[1]))
             Yes = pr_stmt(List[2],Pref+'    ',True)
             return '%sif(%s) begin\n%s%send\n'%(Pref,Cond,Yes,Pref)
-        if List[0]=='functioncall':
+        if List[0] in ['functioncall','funccall']:
             res = map(pr_expr,List[2])
             res2 = string.join(res,',')
             return '%s%s(%s);\n'%(Pref,List[1],res2)
@@ -1312,7 +1312,7 @@ def pr_expr(What):
             return What[1]
         Expr  = pr_expr(What[2])
         return '%s(%s)'%(What[1],Expr)
-    if What[0]=='functioncall':
+    if What[0] in ['functioncall','funccall']:
         if len(What[2])==1:
             Str = '%s(%s)'%(What[1],pr_expr(What[2][0]))
         else:

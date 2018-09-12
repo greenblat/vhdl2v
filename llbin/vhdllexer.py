@@ -211,8 +211,8 @@ Table = [
     ,('idle',Digits,Digits,         'number','add',0)
     ,('idle',Digits,'.',            'floating0','add',0)
     ,('idle',Digits,'',             'idle','push','number')
-    ,('idle',"'",Digits+'-Zz',               'Literal1','add',0)
-    ,('Literal1',Digits+'-Zz','',            'Literal1','add',0)
+    ,('idle',"'",Digits+'-ZzXx',               'Literal1','add',0)
+    ,('Literal1',Digits+'-ZzXx','',            'Literal1','add',0)
     ,('Literal1',"'",'',            'idle','push','literal')
     ,('idle',"'",'',               'idle','push','tick')
 

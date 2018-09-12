@@ -230,9 +230,12 @@ def renameIt(What,Mod):
             Func = What[1]
             if Func=='length':
                 Net = What[2]
-                Dir,Wid = Mod.nets[Net]
-                Len = eval(str(Wid[0]))+1
-                return Len
+                if Net in Mod.nets:
+                    Dir,Wid = Mod.nets[Net]
+                    Len = eval(str(Wid[0]))+1
+                    return Len
+                else:
+                    return  ['functioncall','$width',What[1:]]
             return ['functioncall']+What[1:]
         for ind,Item in enumerate(What):
             Item = renameIt(Item,Mod)

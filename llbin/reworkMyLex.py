@@ -58,7 +58,7 @@ def doWindow():
             WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
 
     if len(WINDOW)>=3:
-        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['CASE','IF','RECORD','COMPONENT']):
+        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['PROCESS','CASE','IF','RECORD','COMPONENT','LOOP','GENERATE']):
             WINDOW.pop(1)
         elif (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
             WINDOW.pop(2)
@@ -73,7 +73,7 @@ def doWindow():
 LIST0 = string.split('''
     Library Use Package End Return Downto Is Function Body Entity Port In Inout Out
     Architecture Of Signal  Process If Then Else Variable Range Wait  Until
-    To And  Elsif Not Or Xor Xnor Case When Others Component Map For Loop Exit Srl
+    To And  Elsif Not Or Xor Xnor Nor Nand Case When Others Component Map For Loop Exit Srl
     Type Assert Report Generic Buffer Array Generate Alias
     Record Subtype
 ''')

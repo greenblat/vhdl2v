@@ -789,6 +789,12 @@ def getList_new__(Item,Adb):
         Assign = getExpr(Adb[Vars[2]],Adb)
         return [('variable',Vars[0][0],Subtype,Assign)]
 
+    Vars = matches(Item,'VARIABLE ? Colon ? !.VarAsgn__expression.')
+    if Vars:
+        Subtype = getSubtype(Vars[1],Adb)
+        Assign = getExpr(Adb[Vars[2]],Adb)
+        return [('variable',Vars[0][0],Subtype,Assign)]
+
     Vars = matches(Item,'VARIABLE ? Colon ?')
     if Vars:
         Expr = getExpr(Vars[1],Adb)
@@ -1386,8 +1392,8 @@ def getExpr(Root,Adb,Father='none'):
     return Res
 
 
-BIOPS = string.split("Ampersand <= GTSym LTSym SRL XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
-VBIOPS = string.split('concat <= > < << ^ ~^ | - + * * & | : >= == != !=')
+BIOPS = string.split("Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
+VBIOPS = string.split('concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
     
 def getExpr__(Root,Adb,Father):
     if (type(Root)==types.ListType)and(len(Root)==1):
@@ -1747,8 +1753,12 @@ def listtuple(AA):
 def mergeToList(AA,BB,List='list'):
     if type(BB)==types.ListType:
         if (BB!=[]) and (BB[0]==List): BB=BB[1:]
+    else:
+        BB = [BB]
     if type(AA)==types.ListType:
         if (AA!=[])and(AA[0]==List): AA=AA[1:]
+    else:
+        AA = [AA]
     Res = [List]+AA+BB
     return  Res
 
