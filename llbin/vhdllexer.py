@@ -294,7 +294,7 @@ ReservedWordsStr = '''
 Library Package Body Use Entity Is Port In Out InOut To Floating GreaterEqual EqualLess
 End Of Signal Architecture Process If Then Elsif Else When 
 Begin Token String Event
-And Or Xor Not Nand Nor Neq 
+And Or Xor Xnor Not Nand Nor Neq 
 
 Type Subtype Case Others Arrow Cassign Constant Literal
 Map Component HexString HobString Null Generic

@@ -23,6 +23,7 @@ ENTITIES={}
 ARCHITECTURES={}
 TYPES = {}
 COMPONENTS ={}
+PACKAGES = {}
 
 DUMMY = [['RRRFFF','Identifier','9999','9999']]
 
@@ -64,6 +65,7 @@ def main():
     print 'step6'
     mod.dumpVerilog()
     reportAdb(Adb,'fff4')
+    savePackages()
 
 
 def cleanComas(Adb):
@@ -261,7 +263,26 @@ def package_new(Vars,Adb):
     Package = Vars[0][0]
     LL = getList_new(Adb[Vars[1]],Adb)
     for ind,Item in enumerate(LL):
-        info('package_new %s %d %s'%(Package,ind,Item))
+        if Item[0]=='constant':
+            Name = Item[1]
+            PACKAGES[Name]=('constant',Item[2],Item[3])
+        elif Item[0]=='subtype':
+            Name = Item[1]
+            PACKAGES[Name]=('subtype',Item[2])
+        elif Item[0]=='function':
+            Name = Item[1]
+            if Name not in PACKAGES: PACKAGES[Name]=[]
+            PACKAGES[Name].append(('function',Item[2],Item[3]))
+        elif Item[0]=='type':
+            Name = Item[1]
+            PACKAGES[Name]=('type',Item[2])
+        elif Item[0]=='subprogram':
+            Name = Item[1][0][1]
+            if Name not in PACKAGES: PACKAGES[Name]=[]
+            PACKAGES[Name].append(('definition',Item[1],Item[2]))
+
+        else:
+            logs.log_error('package_new %s %d %s'%(Package,ind,Item))
 
 def entity_new(Kind,Vars,Adb):
     if Kind==0:
@@ -526,42 +547,19 @@ def getList_new__(Item,Adb):
         Expr = getVarAsgn(Adb[Vars[2]],Adb)
         return [('var_assign',Vars[0][0],Vars[1][0],Expr)]
 
-#    Vars = matches(Item,'? Colon IN std_logic')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('input',LL,0)]
-#
-#    Vars = matches(Item,'? Colon BUFFER std_logic')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('output',LL,0)]
-#
-#    Vars = matches(Item,'? Colon OUT std_logic')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('output',LL,0)]
 
     Vars = matches(Item,'? Colon ?dir  ?wire  !.constraint.')
     if Vars:
         LL = getExpr(Vars[0],Adb)
         Dir = helpers.verilogDir[Vars[1]]
-        return [(Dir,LL,getConstraint(Adb[Vars[3]],Adb))]
+        return [(Dir,LL,Vars[2],getConstraint(Adb[Vars[3]],Adb))]
 
-#    Vars = matches(Item,'? Colon INOUT std_logic_vector !.constraint.')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('output',LL,getConstraint(Adb[Vars[1]],Adb))]
-#
-#    Vars = matches(Item,'? Colon BUFFER std_logic_vector !.constraint.')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('output',LL,getConstraint(Adb[Vars[1]],Adb))]
-#
-#
-#    Vars = matches(Item,'? Colon IN std_logic_vector !.constraint.')
-#    if Vars:
-#        LL = getExpr(Vars[0],Adb)
-#        return [('input',LL,getConstraint(Adb[Vars[1]],Adb))]
+    Vars = matches(Item,'? Colon ?dir  ?  !.constraint.')
+    if Vars:
+        LL = getExpr(Vars[0],Adb)
+        Dir = helpers.verilogDir[Vars[1]]
+        return [(Dir,LL,Vars[2],getConstraint(Adb[Vars[3]],Adb))]
+
 
     Vars = matches(Item,'? Colon ?dir ?')
     if Vars:
@@ -572,11 +570,11 @@ def getList_new__(Item,Adb):
 
     Vars = matches(Item,'SIGNAL ? Colon ? !.VarAsgn__expression.')
     if Vars:
-        return [('signal',getExpr(Vars[0],Adb),getExpr(Vars[1],Adb),getVarAsgn(Adb[Vars[2]],Adb))]
+        return [('signal',getExpr(Vars[0],Adb,'identifier_list'),getExpr(Vars[1],Adb),getVarAsgn(Adb[Vars[2]],Adb))]
 
     Vars = matches(Item,'SIGNAL ? Colon !subtype_indication')
     if Vars:
-        Signal = getExpr(Vars[0],Adb)
+        Signal = getExpr(Vars[0],Adb,'identifier_list')
         Subtype = getSubtype(Adb[Vars[1]],Adb)
         return [('signal',Signal,Subtype)]
     Vars = matches(Item,'SIGNAL ? Colon ?')
@@ -846,7 +844,6 @@ def getList_new__(Item,Adb):
     if Vars:
         Index = getConstraint(Adb[Vars[0]],Adb)
         Subtype = getSubtype(Adb[Vars[1]],Adb)
-        logs.log_info('subtype %s'%(str(Subtype)))
         return [('array',Index,Subtype)]
     Vars = matches(Item,'ARRAY LeftParen !index_subtype_definition  RightParen OF ?')
     if Vars:
@@ -1389,8 +1386,8 @@ def getExpr(Root,Adb,Father='none'):
     return Res
 
 
-BIOPS = string.split("Ampersand <= GTSym LTSym SRL XOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
-VBIOPS = string.split('concat <= > < << ^ | - + * * & | : >= == != !=')
+BIOPS = string.split("Ampersand <= GTSym LTSym SRL XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
+VBIOPS = string.split('concat <= > < << ^ ~^ | - + * * & | : >= == != !=')
     
 def getExpr__(Root,Adb,Father):
     if (type(Root)==types.ListType)and(len(Root)==1):
@@ -1400,7 +1397,8 @@ def getExpr__(Root,Adb,Father):
 
 
     if (type(Root)==types.TupleType)and(Root in Adb):
-        return getExpr(Adb[Root],Adb)
+        if Father=='none': Father=Root[0]
+        return getExpr(Adb[Root],Adb,Father)
     if type(Root)==types.IntType: return Root
     if (len(Root)==4)and(Root[1]=='literal'): return ['bin',1,Root[0][1:-1]]
     if (len(Root)==4)and(Root[1]=='Identifier'): return string.lower(Root[0])
@@ -1599,7 +1597,7 @@ def getExpr__(Root,Adb,Father):
 #        return getExpr(Adb[Root],Adb)
 
 
-    if Father=='element_association':
+    if Father in ['element_association','identifier_list']:
         if bothIdentifiers(Root):
             res=[]
             for X in Root:
@@ -1759,6 +1757,19 @@ def useRenames(Variables,Flow):
     if Variables==[]: return Flow
 # placeholder ILIA
     return Flow
+
+import pprint
+def savePackages():
+    Fout = open('packages_save.py','w')
+    Fout.write('COMPONENTS,PACKAGES={},{}\n')
+    for Name in PACKAGES:
+        Fout.write('PACKAGES["%s"]='%Name)
+        pprint.pprint(PACKAGES[Name],Fout)
+    for Name in COMPONENTS:
+        Fout.write('COMPONENTS["%s"]='%Name)
+        pprint.pprint(COMPONENTS[Name],Fout)
+
+    Fout.close() 
 
 
 main()

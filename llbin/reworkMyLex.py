@@ -25,9 +25,13 @@ def run(Fnamein,Fnameout):
 WINDOW = []
 def keepWindow(Line,Fout,Flush=False):
     if (Flush):
+        for II in range(5): WINDOW.append('comment a b c')
         doWindow()
         while WINDOW!=[]:
-            Fout.write(WINDOW.pop(0))
+            LLL = WINDOW.pop(0)
+            if 'comment' not in LLL:
+                Fout.write(LLL)
+            if (len(WINDOW)>2): doWindow()
         return 
     WINDOW.append(Line)
     if len(WINDOW)>4:
@@ -40,10 +44,10 @@ def doWindow():
     wrds0 =  string.split(WINDOW[0])
     wrds1 =  string.split(WINDOW[1])
     if len(WINDOW)>=3: wrds2 =  string.split(WINDOW[2])
-    if len(WINDOW)>=4: wrds3 =  string.split(WINDOW[3])
     if len(WINDOW)>=4:
+        wrds3 =  string.split(WINDOW[3])
         if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
-            if wrds1[0] in string.split('ENTITY ARCHITECTURE PROCESS CASE GENERATE'):
+            if wrds1[0] in string.split('ENTITY ARCHITECTURE PROCESS CASE GENERATE PACKAGE'):
                 WINDOW.pop(2)
                 if wrds1[0]=='ARCHITECTURE':
                     WINDOW.pop(1)
@@ -54,7 +58,7 @@ def doWindow():
             WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
 
     if len(WINDOW)>=3:
-        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['CASE','IF','RECORD']):
+        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['CASE','IF','RECORD','COMPONENT']):
             WINDOW.pop(1)
         elif (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
             WINDOW.pop(2)
@@ -69,7 +73,7 @@ def doWindow():
 LIST0 = string.split('''
     Library Use Package End Return Downto Is Function Body Entity Port In Inout Out
     Architecture Of Signal  Process If Then Else Variable Range Wait  Until
-    To And  Elsif Not Or Xor Case When Others Component Map For Loop Exit Srl
+    To And  Elsif Not Or Xor Xnor Case When Others Component Map For Loop Exit Srl
     Type Assert Report Generic Buffer Array Generate Alias
     Record Subtype
 ''')

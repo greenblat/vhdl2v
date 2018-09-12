@@ -144,6 +144,7 @@ int is_structure;		/* attribute of architecture body */
 %token 	WHILE
 %token 	WITH
 %token 	XOR
+%token 	XNOR
 
  /****************************************************************************
  **
@@ -158,7 +159,7 @@ int is_structure;		/* attribute of architecture body */
  **
  ****************************************************************************/
 
-%left		AND OR NAND NOR XOR 
+%left		AND OR NAND NOR XOR  XNOR
 %left		EQSym NESym LTSym LESym GTSym GESym
 %left		Plus Minus Ampersand SRL
 %left		Star Slash MOD REM
@@ -585,7 +586,7 @@ operator_symbol    /* defined in LRM 2.1 */
 	| miscellaneous_operator   
 	| StringLit
 	;
-logical_operator : AND | OR | NAND | NOR | XOR 
+logical_operator : AND | OR | NAND | NOR | XOR | XNOR
 	;
 miscellaneous_operator : DoubleStar | ABS | NOT 
 	;
@@ -1627,13 +1628,14 @@ relation.NAND_NOR__relation.
 	  relation
 	;
 
+XORXNOR : XOR | XNOR;
 	
 relation..XOR__relation..
 	: relation
-	  XOR
+	  XORXNOR
 	  relation
 	| relation..XOR__relation..
-	  XOR
+	  XORXNOR
 	  relation
 	;
 

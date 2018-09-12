@@ -761,7 +761,7 @@ class module_class:
 
 
 
-OPS =  ['^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
+OPS =  ['~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
 KEYWORDS = string.split('unsigned if for ifelse edge posedge negedge list case default')
 
 def support_set(Sig,Bussed=True):
