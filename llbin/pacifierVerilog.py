@@ -233,6 +233,7 @@ def renameIt(What,Mod):
                 Dir,Wid = Mod.nets[Net]
                 Len = eval(str(Wid[0]))+1
                 return Len
+            return ['functioncall']+What[1:]
         for ind,Item in enumerate(What):
             Item = renameIt(Item,Mod)
             What[ind]=Item

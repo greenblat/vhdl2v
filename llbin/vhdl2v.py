@@ -226,14 +226,9 @@ def workOnItem(Item,Adb):
     elif matches(List,"USE ?"):
         pass
     else: 
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END ?')
+        Vars = matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !architecture_statement_part END')
         if Vars:
             architecture_new(1,Vars,Adb)
-            return
-
-        Vars = matches(List,'ARCHITECTURE ? OF ? IS !architecture_declarative_part BEGIN_ !architecture_statement_part END ?')
-        if Vars:
-            architecture_new(0,Vars,Adb)
             return
 
         Vars = matches(List,'ARCHITECTURE ? OF ? IS !architecture_declarative_part BEGIN_ !architecture_statement_part END')
@@ -251,7 +246,7 @@ def workOnItem(Item,Adb):
             entity_new(1,Vars,Adb)
             return
 
-        Vars = matches(List,'PACKAGE ? IS !package_declarative_part END ?')
+        Vars = matches(List,'PACKAGE ? IS !package_declarative_part END')
         if Vars:
             package_new(Vars,Adb)
             return
@@ -263,7 +258,11 @@ def workOnItem(Item,Adb):
     
 
 def package_new(Vars,Adb):
-    print 'package_new',Vars
+    Package = Vars[0][0]
+    LL = getList_new(Adb[Vars[1]],Adb)
+    for ind,Item in enumerate(LL):
+        info('package_new %s %d %s'%(Package,ind,Item))
+
 def entity_new(Kind,Vars,Adb):
     if Kind==0:
         Gmatch = matches(Adb[Vars[1]],'GENERIC LeftParen !formal_generic_list RightParen')
@@ -384,6 +383,11 @@ def getList_new__(Item,Adb):
         CC = mergeToList([AA],BB)
         return CC
 
+    Vars = matches(Item,'RETURN ?')
+    if Vars:
+        Ret = getExpr(Vars[0],Adb)
+        return [('return',Ret)]
+
     Vars = matches(Item,'!..process_declarative_item.. !process_declarative_item')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
@@ -394,6 +398,39 @@ def getList_new__(Item,Adb):
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
         return AA+BB
+
+
+    Vars = matches(Item,'!..package_body_declarative_item..  !package_body_declarative_item')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return AA+BB
+
+    Vars = matches(Item,'!..package_declarative_item..  !package_declarative_item')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return AA+BB
+
+    Vars = matches(Item,'SUBTYPE ? IS !subtype_indication')
+    if Vars:
+        Name = Vars[0][0]
+        Subtype = getSubtype(Adb[Vars[1]],Adb)
+        return [('subtype',Name,Subtype)]
+        
+
+    Vars = matches(Item,'FUNCTION ? !.function_parameter_list. RETURN ?')
+    if Vars:
+        Func = Vars[0][0]
+        Params = getList_new(Adb[Vars[1]],Adb)
+        What = getExpr(Vars[2],Adb)
+        return [('function',Func,Params,What)]
+    Vars = matches(Item,'!subprogram_specification IS !subprogram_declarative_part BEGIN_ !sequence_of_statements END')
+    if Vars:
+        Sub = getList_new(Adb[Vars[0]],Adb)
+        Decl = getList_new(Adb[Vars[1]],Adb)
+        Seq = getList_new(Adb[Vars[2]],Adb)
+        return [('subprogram',Sub,Decl,Seq)]
 
     Vars = matches(Item,'!a_label !unlabeled_process_statement')
     if Vars:
@@ -814,7 +851,7 @@ def getList_new__(Item,Adb):
     Vars = matches(Item,'ARRAY LeftParen !index_subtype_definition  RightParen OF ?')
     if Vars:
         Index = getConstraint(Adb[Vars[0]],Adb)
-        Subtype = getExpr(Adb[Vars[1]],Adb)
+        Subtype = getExpr(Vars[1],Adb)
         return [('array',Index,Subtype)]
 
     Vars = matches(Item,'ARRAY !index_constraint OF !subtype_indication')
@@ -1345,9 +1382,9 @@ def matches(List,Seq):
      
 
 
-def getExpr(Root,Adb):
+def getExpr(Root,Adb,Father='none'):
     TRACE.append(('expr',Root))
-    Res = getExpr__(Root,Adb)
+    Res = getExpr__(Root,Adb,Father)
     TRACE.pop(-1)
     return Res
 
@@ -1355,9 +1392,15 @@ def getExpr(Root,Adb):
 BIOPS = string.split("Ampersand <= GTSym LTSym SRL XOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
 VBIOPS = string.split('concat <= > < << ^ | - + * * & | : >= == != !=')
     
-def getExpr__(Root,Adb):
+def getExpr__(Root,Adb,Father):
     if (type(Root)==types.ListType)and(len(Root)==1):
         return getExpr(Root[0],Adb)
+    if (type(Root)==types.TupleType)and(Root in Adb)and(Root[0]=='function_parameter_element'):
+        return functionParamElement(Adb[Root],Adb)
+
+
+    if (type(Root)==types.TupleType)and(Root in Adb):
+        return getExpr(Adb[Root],Adb)
     if type(Root)==types.IntType: return Root
     if (len(Root)==4)and(Root[1]=='literal'): return ['bin',1,Root[0][1:-1]]
     if (len(Root)==4)and(Root[1]=='Identifier'): return string.lower(Root[0])
@@ -1368,7 +1411,7 @@ def getExpr__(Root,Adb):
         if Str[0] in ['x','X']:
             Val = Str[2:-1]
             return ['hex',4*(len(Str)-3),Val]
-        if Str[0]==['b','B']:
+        if Str[0] in ['b','B']:
             Val = Str[2:-1]
             return ['bin',(len(Str)-3),Val]
         logs.log_error('getExpr of BasedInt got %s'%Str)
@@ -1390,12 +1433,6 @@ def getExpr__(Root,Adb):
     if (len(Root)==3)and(Root[0][0] == 'LeftParen')and(Root[2][0] == 'RightParen'):
         return getExpr(Root[1],Adb)
 
-
-    if (len(Root)==2)and(type(Root)==types.TupleType)and(Root in Adb):
-        LL = Adb[Root]
-        if bothIdentifiers(LL):
-            return [LL[0][0],LL[1][0]]
-        return getExpr(Adb[Root],Adb)
 
 
     Vars = matches(Root,'!choice =>  ?')
@@ -1473,20 +1510,20 @@ def getExpr__(Root,Adb):
     Vars =  matches(Root,"? LeftParen ? !...element_association.. RightParen")
     if Vars:
         Y = getExpr(Vars[1],Adb)
-        Z = getExpr(Vars[2],Adb)
+        Z = getExpr(Adb[Vars[2]],Adb,'element_association')
         return ['funccall',Vars[0],[Y,Z]]
 
     Vars =  matches(Root,"LeftParen ? !...element_association.. RightParen")
     if Vars:
         AA = Vars[0][0]
-        BB = getExpr(Adb[Vars[1]],Adb)
+        BB = getExpr(Adb[Vars[1]],Adb,'element_association')
         LL = mergeToList([AA],BB,'elem')
         return LL
     Vars =  matches(Root,"!...element_association.. ?")
     if Vars:
 
         AA = Vars[1][0]
-        BB = getExpr(Adb[Vars[0]],Adb)
+        BB = getExpr(Adb[Vars[0]],Adb,'element_association')
         LL = mergeToList(BB,[AA],'elem')
         return LL
 
@@ -1555,10 +1592,35 @@ def getExpr__(Root,Adb):
         return LL
 
 
-    logs.log_error('getExpr got %s'%(str(Root)))
+    if (len(Root)==2)and(type(Root)==types.TupleType)and(Root in Adb):
+        LL = Adb[Root]
+        if bothIdentifiers(LL):
+            return [LL[0][0],LL[1][0]]
+#        return getExpr(Adb[Root],Adb)
+
+
+    if Father=='element_association':
+        if bothIdentifiers(Root):
+            res=[]
+            for X in Root:
+                Y = getExpr(X,Adb,'simple')
+                res.append(Y)
+            return res
+        
+        
+
+
+    logs.log_error('getExpr got %s from %s'%(str(Root),Father))
     reportTrace(TRACE)
     traceback.print_stack()
     return Root
+
+def functionParamElement(Root,Adb):
+    Vars = matches(Root,'? Colon ?')
+    if Vars:
+        return ('funcparam',getExpr(Vars[0],Adb),getExpr(Vars[1],Adb))
+    logs.log_error('functionParamElement got "%s"'%str(Root))
+    return ('funcparam','err','err')
 
 def reportTrace(Trace):
     for Item in Trace:
@@ -1678,7 +1740,7 @@ def bothIdentifiers(LL):
     if len(LL)!=2: return False
     if not listtuple(LL): return False
     for Item in LL:
-        if Item[1]!='Identifier': return False
+        if Item[1] not in ['Identifier','BitStringLit']: return False
     return True
 def listtuple(AA):
     return  type(AA) in [types.ListType, types.TupleType]

@@ -25,6 +25,7 @@ def run(Fnamein,Fnameout):
 WINDOW = []
 def keepWindow(Line,Fout,Flush=False):
     if (Flush):
+        doWindow()
         while WINDOW!=[]:
             Fout.write(WINDOW.pop(0))
         return 
@@ -33,22 +34,34 @@ def keepWindow(Line,Fout,Flush=False):
         Fout.write(WINDOW.pop(0))
     else:
         return
+    doWindow()
+
+def doWindow():
     wrds0 =  string.split(WINDOW[0])
     wrds1 =  string.split(WINDOW[1])
-    wrds2 =  string.split(WINDOW[2])
-    wrds3 =  string.split(WINDOW[3])
-    if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
-        if wrds1[0] in string.split('ENTITY ARCHTECTURE PROCESS CASE GENERATE'):
+    if len(WINDOW)>=3: wrds2 =  string.split(WINDOW[2])
+    if len(WINDOW)>=4: wrds3 =  string.split(WINDOW[3])
+    if len(WINDOW)>=4:
+        if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
+            if wrds1[0] in string.split('ENTITY ARCHITECTURE PROCESS CASE GENERATE'):
+                WINDOW.pop(2)
+                if wrds1[0]=='ARCHITECTURE':
+                    WINDOW.pop(1)
+                if wrds1[0]=='ENTITY':
+                    WINDOW.pop(1)
+        elif (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
             WINDOW.pop(2)
+            WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
+
+    if len(WINDOW)>=3:
+        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['CASE','IF','RECORD']):
+            WINDOW.pop(1)
+        elif (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
+            WINDOW.pop(2)
+        elif (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[1]=='Identifier'):
+                WINDOW.pop(1)
     if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
             WINDOW.pop(1)
-    if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[1]=='Identifier'):
-            WINDOW.pop(1)
-    if (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
-        WINDOW.pop(2)
-        WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
-    if (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
-        WINDOW.pop(2)
 
 
 
@@ -58,7 +71,7 @@ LIST0 = string.split('''
     Architecture Of Signal  Process If Then Else Variable Range Wait  Until
     To And  Elsif Not Or Xor Case When Others Component Map For Loop Exit Srl
     Type Assert Report Generic Buffer Array Generate Alias
-    Record
+    Record Subtype
 ''')
 LIST1 = {'token':'Identifier','dotted':'DOTTED'
     ,'number':'DecimalInt'

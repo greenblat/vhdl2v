@@ -266,6 +266,8 @@ def reworkExpr(Expr):
     if Expr[0] == 'funccall':
         if Expr[1]=='Event':
             return ['functioncall','edge',[Expr[2]]]
+        if Expr[1] in ['ext','sxt']:
+            return Expr
     if Expr[0] == 'loop':
         Item2 = reworkExpr(Expr[2])
         Vars = matches.matches(Expr[1],['for','?',['to','?','?']])
