@@ -384,9 +384,13 @@ def getList_new__(Item,Adb):
 
     Vars = matches(Item,'!..block_declarative_item.. !block_declarative_item')
     if Vars:
-        AA = getList_new(Adb[Vars[0]],Adb)
+        AA = getList_flat('..block_declarative_item..',Adb[Vars[0]],Adb)
+        CC = []
+        for Item in AA:
+            print Item
+            CC.append(getList_new(Adb[Item],Adb))
         BB = getList_new(Adb[Vars[1]],Adb)
-        return AA+[BB]
+        return CC+[BB]
 
     Vars = matches(Item,'!concurrent_statement !..concurrent_statement..')
     if Vars:
@@ -933,6 +937,25 @@ def getList_new__(Item,Adb):
     reportTrace(TRACE)
     return []
 
+def getList_flat(Key,List,Adb):
+    res = []
+    Ok=True
+    while Ok:
+        if (len(List)==2)and(List[0][0]==Key):
+            res.append(List[1])
+            New = Adb[List[0]]
+            if (len(New)==2)and(New[0][0]==Key):
+                List = New
+            else:
+                res.extend(List)
+                Ok=False
+        else:
+            res.extend(List)
+            Ok=False
+    return res
+
+
+
 def getRecordElem(List,Adb): 
     Vars = matches(List,'? Colon ?')
     Name = getExpr(Vars[0],Adb)
@@ -1354,12 +1377,12 @@ def addWire(Net,Wid):
         Lo = Wid[3]
         mod.addWire(Net,'wire',(Hi,Lo))
     elif type(Wid) == types.ListType:
-        logs.log_error('trying to add wire %s with wid=%s'%(Net,Wid))
+        logs.log_error('vhdl2v: trying to add wire %s with wid=%s'%(Net,Wid))
     elif (type(Wid)==types.StringType)and(Wid in TYPES):
         info('USING TYPE %s %s %s'%(Wid,Net,TYPES[Wid]))
         mod.addWire(Net,'reg',TYPES[Wid])
     else:
-        logs.log_error('adding signal failed net=%s wid=%s '%(Net,Wid))
+        logs.log_error('vhdl2v: adding signal failed net=%s wid=%s '%(Net,Wid))
         info('defined TYPES are %s'%(str(TYPES.keys())))
 
    

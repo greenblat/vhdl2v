@@ -36,6 +36,11 @@ def addWire(Name,Dir,From=0,To=0):
 
     Name = string.lower(Name)
 
+    if (From=='std_logic_vector')and(type(To)==types.TupleType):
+        Current.nets[Name] = (Dir,To)
+        return
+
+
     if (type(From)==types.ListType)and(len(From)==1):
         From=From[0]
 
@@ -90,7 +95,7 @@ def addWire(Name,Dir,From=0,To=0):
     try:
         X = From+To
     except:
-        logs.log_error('addWire for %s got from=%s to=%s'%(Name,From,To))
+        logs.log_error('moduleBuilder addWire for %s got from=%s to=%s'%(Name,From,To))
         print traceback.print_stack()
         Current.nets[Name] = (Dir,(777,777))
         return
