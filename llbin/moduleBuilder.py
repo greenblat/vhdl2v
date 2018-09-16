@@ -7,6 +7,7 @@ import module_class
 import logs
 import pacifierVerilog
 import matches
+import traceback
 
 MODULES={}
 Current = False
@@ -90,6 +91,7 @@ def addWire(Name,Dir,From=0,To=0):
         X = From+To
     except:
         logs.log_error('addWire for %s got from=%s to=%s'%(Name,From,To))
+        print traceback.print_stack()
         Current.nets[Name] = (Dir,(777,777))
         return
         

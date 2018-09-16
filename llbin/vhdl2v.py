@@ -16,6 +16,7 @@ sys.path.append('%s/verification_libs'%NewName)
 import logs 
 import moduleBuilder as mod
 import helpers
+import matches as mtc
 
 info = logs.log_info
 
@@ -58,11 +59,11 @@ def main():
     dones = 1
     while dones>0:
         dones = removeUnused(Adb)
-    print 'step4'
+    print 'scan db'
     scanStuff_new(Adb)
-    print 'step5'
+    print 'turn to verilog'
     makeVerilog(Adb)
-    print 'step6'
+    print 'dumps and saves'
     mod.dumpVerilog()
     reportAdb(Adb,'fff4')
     savePackages()
@@ -204,10 +205,11 @@ def scanStuff_new(Adb):
 def scanStuff_deep(Root,Adb):
     if (type(Root)==types.TupleType) and (Root in Adb):
         workOnItem(Root,Adb)
-    else:
+    elif (type(Root)==types.ListType)and(Root[0] in Adb):
         for Item in Root:
             scanStuff_deep(Item,Adb)
-
+    else:
+        workOnItem(Root,Adb)
 
 def workOnItem(Item,Adb):
     if type(Item)==types.ListType:
@@ -404,10 +406,8 @@ def getList_new__(Item,Adb):
         CC = mergeToList([AA],BB)
         return CC
 
-    Vars = matches(Item,'RETURN ?')
-    if Vars:
-        Ret = getExpr(Vars[0],Adb)
-        return [('return',Ret)]
+
+
 
     Vars = matches(Item,'!..process_declarative_item.. !process_declarative_item')
     if Vars:
@@ -432,6 +432,22 @@ def getList_new__(Item,Adb):
         AA = getList_new(Adb[Vars[0]],Adb)
         BB = getList_new(Adb[Vars[1]],Adb)
         return AA+BB
+
+    Vars = matches(Item,'LeftParen !function_parameter_element  !...function_parameter_element.. RightParen')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return AA+BB
+    Vars = matches(Item,'!...function_parameter_element..  !function_parameter_element')
+    if Vars:
+        AA = getList_new(Adb[Vars[0]],Adb)
+        BB = getList_new(Adb[Vars[1]],Adb)
+        return AA+BB
+
+    Vars = matches(Item,'RETURN ?')
+    if Vars:
+        Ret = getExpr(Vars[0],Adb)
+        return [('return',Ret)]
 
     Vars = matches(Item,'SUBTYPE ? IS !subtype_indication')
     if Vars:
@@ -460,6 +476,12 @@ def getList_new__(Item,Adb):
         if len(AA)==1: AA=AA[0]
         return [('process',Label,AA[1],AA[2],AA[3])]
 
+    Vars = matches(Item,'!a_label !unlabeled_loop_statement')
+    if Vars:
+        AA = getList_new(Adb[Vars[1]],Adb) 
+        Label = getLabel(Adb[Vars[0]],Adb)
+        if len(AA)==1: AA=AA[0]
+        return [('loop',Label,AA)]
 
     Vars = matches(Item,'!a_label !unlabeled_generate_statement')
     if Vars:
@@ -703,7 +725,7 @@ def getList_new__(Item,Adb):
     if Vars:
         return []
 
-    Vars = matches(Item,'IF !condition THEN !sequence_of_statements END IF')
+    Vars = matches(Item,'IF ? THEN !sequence_of_statements END IF')
     if Vars:
         Cond = getExpr(Adb[Vars[0]],Adb)
         LL = getList_new(Adb[Vars[1]],Adb)
@@ -759,9 +781,9 @@ def getList_new__(Item,Adb):
         LL1 = listify(getList_new(Adb[Vars[2]],Adb))
         return [('ifelse',Cond,LL0,LL1)]
 
-    Vars = matches(Item,'IF !condition THEN !sequence_of_statements !.ELSE__seq_of_stmts. END IF')
+    Vars = matches(Item,'IF ? THEN !sequence_of_statements !.ELSE__seq_of_stmts. END IF')
     if Vars:
-        Cond = getExpr(Adb[Vars[0]],Adb)
+        Cond = getExpr(Vars[0],Adb)
         LL0 = listify(getList_new(Adb[Vars[1]],Adb))
         LL1 = listify(getList_new(Adb[Vars[2]],Adb))
         return [('ifelse',Cond,LL0,LL1)]
@@ -918,6 +940,8 @@ def getRecordElem(List,Adb):
     return (Name,Kind)
 
 def getSubtype(List,Adb):
+    List =  is_one_list(List)
+
     Vars = matches(List,'unsigned !.constraint.')
     if Vars:
         LL = getConstraint(Adb[Vars[0]],Adb)
@@ -935,12 +959,13 @@ def getSubtype(List,Adb):
     if Vars:
         Type = Vars[0][0]
         LL = getConstraint(Adb[Vars[1]],Adb)
-        print 'type',Type,TYPES.keys(),LL
         if Type in TYPES:
             Base = TYPES[Type]
             LL = getConstraint(Adb[Vars[1]],Adb)
             return (Base,LL)
-            
+        else:
+            logs.log_warning('assumes %s is a type'%Type)
+            return (Type,LL)
 
 
     logs.log_error('getSubtype got "%s"'%(str(List)))
@@ -965,6 +990,7 @@ def getVarAsgn(List,Adb):
     return 0
 
 def getConstraint(List,Adb):
+    List =  from_db(List,Adb)
     Vars = matches(List,'LeftParen !element_association RightParen')
     if Vars:
         List2 = Adb[Vars[0]]
@@ -1003,7 +1029,7 @@ def getConstraint(List,Adb):
         logs.log_error('discrete range %s'%(Range))
         return 0
 
-    logs.log_error('getConstraint failed on %s'%(List))
+    logs.log_error('getConstraint failed on %s'%(str(List)))
     return 0
 
 
@@ -1043,17 +1069,25 @@ def makeVerilogEntities():
                 mod.addModuleParam(Item[1],0)
         for Item in Plist:
             if len(Item)==1: Item = Item[0]
-            try:
-                Dir = Item[0]
-                Net = Item[1]
-                Wid = Item[2]
-                try:
-                    mod.addWire(Net,Dir,Wid)
-                except:
-                    logs.log_error('addWire failed "%s %s %s"'%(Dir,Net,Wid))
-                    
-            except:
-                logs.log_error('item in plist is "%s"'%str(Item))
+            found=False
+            Vars = mtc.matches(Item,'?dir ? std_logic',False)
+            if Vars:
+                mod.addWire(Vars[1],Vars[0],0,0)
+                found=True
+            Vars = mtc.matches(Item,'?dir ? std_logic_vector ?',False)
+            if Vars:
+                mod.addWire(Vars[1],Vars[0],Vars[2],0)
+                found=True
+            Vars = mtc.matches(Item,'?dir ? ?',False)
+            if Vars:
+                mod.addWire(Vars[1],Vars[0],Vars[2],0)
+                found=True
+            Vars = mtc.matches(Item,'?dir ? ? ?',False)
+            if Vars:
+                mod.addWire(Vars[1],Vars[0],Vars[2],Vars[3])
+                found=True
+                
+            if not found: logs.log_error('item in plist is "%s"'%str(Item))
 
 def makeVerilogArchs(Adb):
     for Module in ARCHITECTURES:
@@ -1392,8 +1426,8 @@ def getExpr(Root,Adb,Father='none'):
     return Res
 
 
-BIOPS = string.split("Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
-VBIOPS = string.split('concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
+BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
+VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
     
 def getExpr__(Root,Adb,Father):
     if (type(Root)==types.ListType)and(len(Root)==1):
@@ -1470,13 +1504,17 @@ def getExpr__(Root,Adb,Father):
 
     if (len(Root)==2)and(type(Root)==types.ListType)and(Root[0] in Adb)and(Root[1] in Adb):
         Expr = getExpr(Root[0],Adb)
-        XX =  getExpr([DUMMY+Adb[Root[1]]],Adb)
-        XX[1] = Expr
-        return XX
+        XX =  getExpr(Adb[Root[1]],Adb)
+        return tuple(XX)
     Vars =  matches(Root,"OTHERS => ?")
     if Vars:
         return getExpr(Vars[0],Adb)
 
+    Vars =  matches(Root,"? Dot ?")
+    if Vars:
+        A = getExpr(Vars[0],Adb)
+        B = getExpr(Vars[1],Adb)
+        return ('dot',A,B)
     Vars =  matches(Root,"UNTIL ? AND ?")
     if Vars:
         AA = getExpr(Vars[0],Adb)
@@ -1541,6 +1579,13 @@ def getExpr__(Root,Adb,Father):
     if (len(Root)==2)and(type(Root)==types.ListType):
         if (Root[0][1] in ['DecimalInt','BasedInt'])and(Root[0][1] in ['DecimalInt','BasedInt']):
             return ['elem',Root[0][0],Root[1][0]]
+
+
+    Vars = matches(Root,'VARIABLE ? Colon ?')
+    if Vars:
+        Expr = getExpr(Vars[1],Adb)
+        return ('variable',Vars[0][0],Expr)
+
 
     Vars = matches(Root,'? WHEN ? ELSE ?')
     if Vars:
@@ -1623,6 +1668,9 @@ def functionParamElement(Root,Adb):
     Vars = matches(Root,'? Colon ?')
     if Vars:
         return ('funcparam',getExpr(Vars[0],Adb),getExpr(Vars[1],Adb))
+    Vars = matches(Root,'? Colon ? !.constraint.')
+    if Vars:
+        return ('funcparam',getExpr(Vars[0],Adb),getExpr(Vars[1],Adb),getConstraint(Vars[2],Adb))
     logs.log_error('functionParamElement got "%s"'%str(Root))
     return ('funcparam','err','err')
 
@@ -1780,7 +1828,14 @@ def savePackages():
         pprint.pprint(COMPONENTS[Name],Fout)
 
     Fout.close() 
+def is_one_list(List):
+    if type(List)!=types.ListType: return List
+    if len(List)==1: return List[0]
+    return List
 
-
+def from_db(List,Adb):
+    if type(List)==types.TupleType:
+        if List in Adb: return Adb[List]
+    return List
 main()
 

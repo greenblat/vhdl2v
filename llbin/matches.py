@@ -10,11 +10,20 @@ def matches(List,Seq,Verbose=False):
     if type(Seq)==types.TupleType:
         return listMatches(List,Seq,Verbose)
     Lseq = string.split(Seq)
-    if len(List)!=len(Lseq): return False
+    if len(List)!=len(Lseq): 
+        if Verbose: logs.log_info('matches stopped at length %d<>%d iseq=%s list=%s'%(len(Lseq),len(List),Lseq,List))
+        return False
     Vars=[]
     for ind,Iseq in enumerate(Lseq):
         if Iseq == '?': 
             Vars.append(List[ind])
+        elif Iseq[0] == '?':
+            Who = List[ind]
+            if Who in MGROUPS[Iseq[1:]]:
+                Vars.append(Who)
+            else:
+                if Verbose: logs.log_info('matches stopped at mgroups iseq=%s list=%s'%(Lseq,List))
+                return False
         elif Iseq == '$': 
             Who = List[ind]
             if Who in KNOWNFUNCTIONS:
@@ -28,6 +37,10 @@ def matches(List,Seq,Verbose=False):
             return False
     if Vars==[]: return True 
     return Vars 
+
+MGROUPS={}
+MGROUPS['dir'] = string.split('IN OUT INOUT BUFFER input output')
+MGROUPS['wire'] = string.split('unsigned positive std_logic std_logic_vector')
 
 
 
