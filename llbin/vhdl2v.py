@@ -395,18 +395,28 @@ def getList_new__(Item,Adb):
     Vars = matches(Item,'!concurrent_statement !..concurrent_statement..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        BB = getList_new(Adb[Vars[1]],Adb)
+        FF = getList_flat('..concurrent_statement..',Adb[Vars[1]],Adb)
+        BB = []
+        for Item in FF:
+            BB.append(getList_new(Adb[Item],Adb))
         return [AA]+BB
 
     Vars = matches(Item,'!association_element !...association_element..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        BB = getList_new(Adb[Vars[1]],Adb)
+        FF = getList_flat('...association_element..',Adb[Vars[1]],Adb)
+        BB = []
+        for Item in FF:
+            BB.append(getList_new(Adb[Item],Adb))
         return [AA]+BB
+
     Vars = matches(Item,'!sequential_statement !..sequential_statement..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        BB = getList_new(Adb[Vars[1]],Adb)
+        FF = getList_flat('..sequential_statement..',Adb[Vars[1]],Adb)
+        BB = []
+        for Item in FF:
+            BB.append(getList_new(Adb[Item],Adb))
         CC = mergeToList([AA],BB)
         return CC
 
