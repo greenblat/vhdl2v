@@ -384,10 +384,9 @@ def getList_new__(Item,Adb):
 
     Vars = matches(Item,'!..block_declarative_item.. !block_declarative_item')
     if Vars:
-        AA = getList_flat('..block_declarative_item..',Adb[Vars[0]],Adb)
+        AA = getList_flat0('..block_declarative_item..',Adb[Vars[0]],Adb)
         CC = []
         for Item in AA:
-            print Item
             CC.append(getList_new(Adb[Item],Adb))
         BB = getList_new(Adb[Vars[1]],Adb)
         return CC+[BB]
@@ -395,25 +394,31 @@ def getList_new__(Item,Adb):
     Vars = matches(Item,'!concurrent_statement !..concurrent_statement..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        FF = getList_flat('..concurrent_statement..',Adb[Vars[1]],Adb)
+        FF = getList_flat1('..concurrent_statement..',Adb[Vars[1]],Adb)
         BB = []
         for Item in FF:
-            BB.append(getList_new(Adb[Item],Adb))
+            if len(Item)==2:
+                BB.append(getList_new(Adb[Item],Adb))
+            else:
+                BB.append(getList_new(Item,Adb))
         return [AA]+BB
 
     Vars = matches(Item,'!association_element !...association_element..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        FF = getList_flat('...association_element..',Adb[Vars[1]],Adb)
+        FF = getList_flat1('...association_element..',Adb[Vars[1]],Adb)
         BB = []
         for Item in FF:
-            BB.append(getList_new(Adb[Item],Adb))
+            if len(Item)==2:
+                BB.append(getList_new(Adb[Item],Adb))
+            else:
+                BB.append(getList_new(Item,Adb))
         return [AA]+BB
 
     Vars = matches(Item,'!sequential_statement !..sequential_statement..')
     if Vars:
         AA = getList_new(Adb[Vars[0]],Adb)
-        FF = getList_flat('..sequential_statement..',Adb[Vars[1]],Adb)
+        FF = getList_flat1('..sequential_statement..',Adb[Vars[1]],Adb)
         BB = []
         for Item in FF:
             BB.append(getList_new(Adb[Item],Adb))
@@ -947,7 +952,7 @@ def getList_new__(Item,Adb):
     reportTrace(TRACE)
     return []
 
-def getList_flat(Key,List,Adb):
+def getList_flat0(Key,List,Adb):
     res = []
     Ok=True
     while Ok:
@@ -964,6 +969,22 @@ def getList_flat(Key,List,Adb):
             Ok=False
     return res
 
+def getList_flat1(Key,List,Adb):
+    res = []
+    Ok=True
+    while Ok:
+        if (len(List)==2)and(List[1][0]==Key):
+            res.append(List[0])
+            New = Adb[List[1]]
+            if (len(New)==2)and(New[1][0]==Key):
+                List = New
+            else:
+                res.extend(List)
+                Ok=False
+        else:
+            res.append(List)
+            Ok=False
+    return res
 
 
 def getRecordElem(List,Adb): 
