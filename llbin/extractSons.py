@@ -7,13 +7,15 @@ def main():
     workInFile(File)
     print DATA['entity'],DATA['architecture'],len(DATA['insts'])
     if DATA['entity'] == DATA['architecture']:
-        createSonsFile(DATA['entity'],DATA['insts'])
+        createSonsFile(DATA['entity'],DATA['insts'],DATA['uses'])
 
 
-def createSonsFile(Module,Sons):
+def createSonsFile(Module,Sons,Uses):
     Fout = open('sons/%s.sons'%(Module),'w')
     for Son in Sons:
-        Fout.write('  %s\n'%(Son))
+        Fout.write('%s  %s son\n'%(Module,Son))
+    for Use in Uses:
+        Fout.write('%s  %s use\n'%(Module,Use))
     Fout.close()
 
 def workInFile(File):
@@ -34,8 +36,21 @@ def workInFile(File):
 state = 'idle'
 DATA = {}
 DATA['insts'] = []
+DATA['uses'] = []
 def work(Words):
     global state
+
+    Ok = True
+    while Ok:
+        Find = lookFor(Words,'use ? ;')
+        if Find:
+            First,Vars = Find
+            Words = Words[:First]+Words[First+3:]
+            if 'ieee' not in Vars[0]:
+                DATA['uses'].append(Vars[0])
+        else:
+            Ok=False
+
     if state=='idle':
          Find = lookFor(Words,'entity ? is')
          if Find:
