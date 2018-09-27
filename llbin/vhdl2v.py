@@ -258,6 +258,10 @@ def workOnItem(Item,Adb):
         if Vars:
             package_new(Vars,Adb)
             return
+        Vars = matches(List,'PACKAGE BODY ? IS !package_body_declarative_part END')
+        if Vars:
+            package_new(Vars,Adb)
+            return
         logs.log_error('dont know to treat "%s"'%str(List))
     
 
@@ -265,26 +269,76 @@ def package_new(Vars,Adb):
     Package = Vars[0][0]
     LL = getList_new(Adb[Vars[1]],Adb)
     for ind,Item in enumerate(LL):
-        if Item[0]=='constant':
-            Name = Item[1]
-            PACKAGES[Name]=('constant',Item[2],Item[3])
-        elif Item[0]=='subtype':
-            Name = Item[1]
-            PACKAGES[Name]=('subtype',Item[2])
-        elif Item[0]=='function':
-            Name = Item[1]
-            if Name not in PACKAGES: PACKAGES[Name]=[]
-            PACKAGES[Name].append(('function',Item[2],Item[3]))
-        elif Item[0]=='type':
-            Name = Item[1]
-            PACKAGES[Name]=('type',Item[2])
-        elif Item[0]=='subprogram':
-            Name = Item[1][0][1]
-            if Name not in PACKAGES: PACKAGES[Name]=[]
-            PACKAGES[Name].append(('definition',Item[1],Item[2]))
+        createSaveItem(Package,Item,Adb)
+        createSvPackage(Package,Item,Adb)
+        
+PKEEPS = {}
+def createSvPackage(Package,Item,Adb):
+    if Package not in PKEEPS:
+        PKEEPS[Package] = mod.addModule(Package)
+    Vars = matches(Item,'constant ? integer ?')
+    if Vars:
+        Name = Vars[0]
+        Val  = getExpr(Vars[1],Adb)
+        mod.addModuleParam(Name,Val)
+        return
+    Vars = matches(Item,'constant ? positive ?')
+    if Vars:
+        Name = Vars[0]
+        Val  = getExpr(Vars[1],Adb)
+        mod.addModuleParam(Name,Val)
+        return
+    Vars = matches(Item,'constant ? ? ?')
+    if Vars:
+        Name = Vars[0]
+        Val  = Vars[2]
+        print '>>>>>>constanta',Name,Vars[1],Val
+        return
 
-        else:
-            logs.log_error('package_new %s %d %s'%(Package,ind,Item))
+    Vars = matches(Item,'subtype ? ?')
+    if Vars:
+        Name = Vars[0]
+        return
+
+    Vars = matches(Item,'type ? ?')
+    if Vars:
+        Name = Vars[0]
+        return
+
+    Vars = matches(Item,'subprogram ? ? ?')
+    if Vars:
+        Name = Vars[0]
+        return
+    Vars = matches(Item,'function ? ? ?')
+    if Vars:
+        Name = Vars[0]
+        return
+
+    logs.log_error('package (%s) item failed "%s"'%(Package,Item))
+
+
+
+def createSaveItem(Package,Item,Adb):
+    if Item[0]=='constant':
+        Name = Item[1]
+        PACKAGES[Name]=('constant',Item[2],Item[3])
+    elif Item[0]=='subtype':
+        Name = Item[1]
+        PACKAGES[Name]=('subtype',Item[2])
+    elif Item[0]=='function':
+        Name = Item[1]
+        if Name not in PACKAGES: PACKAGES[Name]=[]
+        PACKAGES[Name].append(('function',Item[2],Item[3]))
+    elif Item[0]=='type':
+        Name = Item[1]
+        PACKAGES[Name]=('type',Item[2])
+    elif Item[0]=='subprogram':
+        Name = Item[1][0][1]
+        if Name not in PACKAGES: PACKAGES[Name]=[]
+        PACKAGES[Name].append(('definition',Item[1],Item[2]))
+
+    else:
+        logs.log_error('package_new createSaveItem %s %s'%(Package,Item))
 
 def entity_new(Kind,Vars,Adb):
     if Kind==0:
@@ -317,12 +371,12 @@ def checkList(Res):
         if len(Res)==4:
             if Res[1] in ['Identifier']:
                 logs.log_error('checkList(1) got "%s"'%str(Res),True)
-                print traceback.print_stack()
+                logs.pStack()
                 return
         if len(Res)==2:
             if (Res[0] not in CHECKGOODS)and(type(Res[0])!=types.IntType):
                 logs.log_error('checkList(2) got "%s"'%str(Res),True)
-                print traceback.print_stack()
+                logs.pStack()
                 return
     if (type(Res)==types.ListType):
         for Item in Res:
@@ -421,7 +475,11 @@ def getList_new__(Item,Adb):
         FF = getList_flat1('..sequential_statement..',Adb[Vars[1]],Adb)
         BB = []
         for Item in FF:
-            BB.append(getList_new(Adb[Item],Adb))
+            if is_in_db(Item,Adb):
+                BB.append(getList_new(Adb[Item],Adb))
+            else:
+                Lx = getList_new(Item,Adb)
+                BB.append(Lx)
         CC = mergeToList([AA],BB)
         return CC
 
@@ -1023,7 +1081,7 @@ def getSubtype(List,Adb):
 
 
     logs.log_error('getSubtype got "%s"'%(str(List)))
-    print traceback.print_stack()
+    logs.pStack()
     return 'badSubType'
 
 def getLabel(List,Adb):
@@ -1385,6 +1443,9 @@ def treatSignals(L1,Module,Adb):
             Val = Item[3]
             treatSignals([['signal',Net,Item[2]]],Module,Adb)
             mod.addHardAssign(Net,Val)
+        elif Item[0]=='subprogram':
+            Head = Item[1][0]
+            mod.add_function(Head[1],Head[2],Item[2],Item[3])
         else:
             logs.log_error('treat signal failed "%s" '%(str(Item)))
 
@@ -1466,7 +1527,7 @@ def matches(List,Seq):
             except:
                 return False
             Vars.append(List[ind])
-        elif (Iseq!=List[ind][0]):
+        elif (Iseq!=List[ind][0])and(Iseq!=List[ind]):
             return False
     if Vars==[]: return True 
     return Vars 
@@ -1484,16 +1545,17 @@ BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNO
 VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
     
 def getExpr__(Root,Adb,Father):
+    if type(Root)==types.IntType: return Root
+    if type(Root)==types.StringType: return Root
     if (type(Root)==types.ListType)and(len(Root)==1):
         return getExpr(Root[0],Adb)
-    if (type(Root)==types.TupleType)and(Root in Adb)and(Root[0]=='function_parameter_element'):
+    if is_in_db(Root,Adb) and(Root[0]=='function_parameter_element'):
         return functionParamElement(Adb[Root],Adb)
 
 
-    if (type(Root)==types.TupleType)and(Root in Adb):
+    if is_in_db(Root,Adb):
         if Father=='none': Father=Root[0]
         return getExpr(Adb[Root],Adb,Father)
-    if type(Root)==types.IntType: return Root
     if (len(Root)==4)and(Root[1]=='literal'): return ['bin',1,Root[0][1:-1]]
     if (len(Root)==4)and(Root[1]=='Identifier'): return string.lower(Root[0])
     if (len(Root)==4)and(Root[1]=='DOTTED'): return string.lower(Root[0])
@@ -1508,14 +1570,37 @@ def getExpr__(Root,Adb,Father):
             return ['bin',(len(Str)-3),Val]
         logs.log_error('getExpr of BasedInt got %s'%Str)
         return 0
+    Vars =  matches(Root,"OTHERS => ?")
+    if Vars:
+        return getExpr(Vars[0],Adb)
+
+    Vars = matches(Root,'!simple_expression !.relop__simple_expression.')
+    if Vars:
+        AA = getExpr(Adb[Vars[0]],Adb)
+        BB = Adb[Vars[1]]
+        Vars = matches(BB,'EQSym ?')
+        if Vars:
+            CC = getExpr(Vars[0],Adb)
+            return ['==',AA,CC]
+        
+        Res = (AA,Adb[Vars[1]])
+        logs.log_error('getExpr on simple_expression relop_simpl.. got "%s" "%s"'%(AA,BB))
+        return getExpr(Res,Adb)
+
+    if type(Root)==types.ListType:
+        if Root[0] in ['bin']:
+            return Root
 
     if (len(Root)==4)and(Root[1]=='BitStringLit'): return ['bin',len(Root[0])-2,Root[0][1:-1]]
-    if (len(Root)==4)and(Root[1]=='OTHERS'): return ['others']
+    if (len(Root)==4)and(Root[1]=='OTHERS'): return 'others'
 
     if (len(Root)==2)and(Root[0][0] == 'NOT'):
         AA = getExpr(Root[1],Adb)
         return [['~',AA]]
-
+    if (len(Root)==3)and(Root[0] in BIOPS):
+        AA = getExpr(Root[1],Adb)
+        BB = getExpr(Root[2],Adb)
+        return [Root[0],AA,BB]
     if (len(Root)==3)and(Root[1][0] in BIOPS):
         AA = getExpr(Root[0],Adb)
         BB = getExpr(Root[2],Adb)
@@ -1560,9 +1645,6 @@ def getExpr__(Root,Adb,Father):
         Expr = getExpr(Root[0],Adb)
         XX =  getExpr(Adb[Root[1]],Adb)
         return tuple(XX)
-    Vars =  matches(Root,"OTHERS => ?")
-    if Vars:
-        return getExpr(Vars[0],Adb)
 
     Vars =  matches(Root,"? Dot ?")
     if Vars:
@@ -1611,8 +1693,8 @@ def getExpr__(Root,Adb,Father):
 
     Vars =  matches(Root,"LeftParen ? !...element_association.. RightParen")
     if Vars:
-        AA = Vars[0][0]
-        BB = getExpr(Adb[Vars[1]],Adb,'element_association')
+        AA = getExpr(Vars[0],Adb,'elm0')
+        BB = list(getExpr(Adb[Vars[1]],Adb,'element_association'))
         LL = mergeToList([AA],BB,'elem')
         return LL
     Vars =  matches(Root,"!...element_association.. ?")
@@ -1695,7 +1777,7 @@ def getExpr__(Root,Adb,Father):
         return LL
 
 
-    if (len(Root)==2)and(type(Root)==types.TupleType)and(Root in Adb):
+    if is_in_db(Root,Adb):
         LL = Adb[Root]
         if bothIdentifiers(LL):
             return [LL[0][0],LL[1][0]]
@@ -1715,7 +1797,7 @@ def getExpr__(Root,Adb,Father):
 
     logs.log_error('getExpr got %s from %s'%(str(Root),Father))
     reportTrace(TRACE)
-    traceback.print_stack()
+    logs.pStack()
     return Root
 
 def functionParamElement(Root,Adb):
@@ -1730,7 +1812,7 @@ def functionParamElement(Root,Adb):
 
 def reportTrace(Trace):
     for Item in Trace:
-        info('          %s'%str(Item))
+        info('      trace:    %s'%str(Item))
     info('\n\n\n')
 
 def level1up(List,Adb):
@@ -1853,12 +1935,18 @@ def listtuple(AA):
 
 
 def mergeToList(AA,BB,List='list'):
+#    if type(AA)==types.TupleType: AA = list(AA)
+#    if type(BB)==types.TupleType: BB = list(BB)
     if type(BB)==types.ListType:
-        if (BB!=[]) and (BB[0]==List): BB=BB[1:]
+        if (len(BB)==1)and(type(BB[0])in [types.ListType,types.TupleType])and(BB[0][0]==List):
+            BB = list(BB[0][1:])
+        elif (BB!=[]) and (BB[0]==List): BB=BB[1:]
     else:
         BB = [BB]
     if type(AA)==types.ListType:
-        if (AA!=[])and(AA[0]==List): AA=AA[1:]
+        if (len(AA)==1)and(type(AA[0])==types.ListType)and(AA[0][0]==List):
+            AA = AA[0][1:]
+        elif (AA!=[])and(AA[0]==List): AA=AA[1:]
     else:
         AA = [AA]
     Res = [List]+AA+BB
@@ -1891,5 +1979,10 @@ def from_db(List,Adb):
     if type(List)==types.TupleType:
         if List in Adb: return Adb[List]
     return List
+def is_in_db(List,Adb):
+    try:
+        return (type(List)==types.TupleType)and(List in Adb)
+    except:
+        return False
 main()
 

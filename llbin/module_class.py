@@ -1,8 +1,9 @@
 import types,string,sys,os
 import logs
 import traceback
+import matches
 
-MathOps = string.split('~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&')
+MathOps = string.split('** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&')
 class module_class:
     def __init__(self,Name,Kind='module'):
         self.Module=Name
@@ -74,12 +75,17 @@ class module_class:
             self.inventedNets += 1
             self.add_sig(Name,Dir,Wid)
             return Name
-        if Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed']:
+        if Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar']:
             logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
             
+        if Dir=='genvar':
+            self.genvars[Name]=True
+            return
+            
+
         if Dir=='input wire': Dir='input'
         if Name=='repeat':
-            traceback.print_stack()
+            traceback.print_stack(None,None,logs.Flog)
             sys.exit()
             return
 
@@ -130,7 +136,7 @@ class module_class:
 
         else:
             logs.log_err('add_sig %s (%s) got width %s'%(Name,Dir,Wid))
-            traceback.print_stack()
+            traceback.print_stack(None,None,logs.Flog)
 
 
 
@@ -147,7 +153,7 @@ class module_class:
     def add_hard_assign(self,Dst,Src,Strength='',Delay=''):
         if (Dst =='')or(Dst==False):
             logs.log_err('add_hard_assign got dst="%s" and src="%s"'%(Dst,Src))
-            traceback.print_stack()
+            traceback.print_stack(None,None,logs.Flog)
             return           
         L1 = support_set(Dst,False)+support_set(Src,False)
         self.checkDefined(L1)
@@ -155,7 +161,9 @@ class module_class:
 
     def checkDefined(self,List):
         for Net in List:
-            if (Net not in self.nets)and(Net not in self.parameters)and(Net[0] not in '0123456789'):
+            if '[' in Net:
+                Net = Net[:Net.index('[')]
+            if (not myExtras(Net))and(Net not in self.nets)and(Net not in self.parameters)and(Net[0] not in '0123456789')and(Net not in self.localparams)and(Net not in self.genvars):
                 logs.log_err('net %s used before defined'%Net)
 
     def duplicate_inst(self,Inst,Inst2):
@@ -239,7 +247,7 @@ class module_class:
 
         for Sig in self.nets:
             Dir,Wid = self.nets[Sig]
-            if Dir in ['input signed','output signed','input wire','input','output','inout','output reg','output wire','inout wire']:
+            if is_external_dir(Dir):
                 IOS.append((Sig,Dir,Wid))
             else:
                 NOIOS.append((Sig,Dir,Wid))
@@ -251,7 +259,10 @@ class module_class:
             Pref=''
             for (Name,Dir,Wid) in IOS:
                 if is_double_def(Wid):
-                    Fout.write('    %s%s %s %s %s\n'%(Pref,pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
+                    if (Wid[0]=='packed'):
+                        Fout.write('    %s%s %s %s %s\n'%(Pref,pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name)))
+                    else:
+                        Fout.write('    %s%s %s %s %s\n'%(Pref,pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
                 else:
                     Fout.write('    %s%s %s %s\n'%(Pref,pr_dir(Dir),pr_wid(Wid),pr_expr(Name)))
                 Pref=','
@@ -284,7 +295,10 @@ class module_class:
             Fout.write('parameter %s = %s;\n'%(pr_expr(Prm),pr_expr(self.parameters[Prm])))
         for (Name,Dir,Wid) in IOS:
             if is_double_def(Wid):
-                Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
+                if Wid[0]=='packed':
+                    Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name)))
+                else:
+                    Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
             else:
                 Fout.write('%s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid),pr_expr(Name)))
         return NOIOS,[]
@@ -301,7 +315,10 @@ class module_class:
             Fout.write('localparam %s = %s;\n'%(pr_expr(Prm),pr_expr(self.localparams[Prm])))
         for (Name,Dir,Wid) in NOIOS:
             if is_double_def(Wid):
-                Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
+                if Wid[0]=='packed':
+                    Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name)))
+                else:
+                    Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2])))
             else:
                 Fout.write('%s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid),pr_expr(Name)))
         for (Name,Def) in NOIFS:
@@ -327,6 +344,8 @@ class module_class:
                 res.append(Str)
             Big = string.join(res,', ')
             Fout.write('modport %s ( %s );\n'%(Name,Big))
+        for Name in self.genvars:
+            Fout.write('genvar %s;\n'%(Name))
         for Name in self.enums:
             List = self.enums[Name]
             if type(List)==types.TupleType:
@@ -364,14 +383,18 @@ class module_class:
         for Initial in self.initials:
             self.dump_initial(Initial,Fout)
         for Generate in self.generates:
-            Fout.write('generate begin\n')
-            Statement = pr_stmt(Generate,'    ',True)
-            Fout.write('%s\n'%Statement)
-            Fout.write('end\n')
-            Fout.write('end generate\n')
+            Fout.write('generate\n')
+            if Generate[0] in ['for','if','ifelse']:
+                Statement = pr_stmt(Generate,'    ',True)
+                Fout.write('%s\n'%Statement)
+            else:
+                for Item in Generate:
+                    Statement = pr_stmt(Item,'    ',True)
+                    Fout.write('%s\n'%Statement)
+            Fout.write('endgenerate\n')
         for Always in self.alwayses:
             if Always:
-                self.dump_always(Always,Fout)
+                dump_always(Always,Fout)
     
         Fout.write('end%s\n\n'%self.Kind)
         
@@ -414,26 +437,6 @@ class module_class:
         logs.log_err('dump_task %s %s'%(Task,X))
 
 
-    def dump_always(self,Always,Fout):
-        if len(Always)==3:
-            Timing = pr_timing(Always[0])
-            Statement = pr_stmt(Always[1],'    ',True)
-            Kind=Always[2]
-            while '$$$' in Statement:
-                ind = Statement.index('$$$')
-                if ind>80:
-                    Repl='    \n'
-                else:
-                    Repl = ''
-                Statement = Statement[:ind]+Repl+Statement[ind+4:]
-            if Timing=='':
-                Fout.write('%s begin\n'%Kind)
-            else:
-                Fout.write('%s @(%s) begin\n'%(Kind,Timing))
-            Fout.write('%s'%Statement)
-            Fout.write('end\n')
-            return
-        logs.log_err('dump_always %d %s'%(len(Always),Always))
 
     def dump_initial(self,Initial,Fout):
         if len(Initial)==0:
@@ -519,8 +522,11 @@ class module_class:
                         H = max(H,Ind)
                         L = min(L,Ind)
                         self.nets[Name]=(Dir,(H,L))
+                    elif (type(WW)==types.TupleType)and(len(WW)==3):
+                        if WW[0] not in ['packed','double']:
+                            logs.log_error('definition of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
                     else:
-                        logs.log_error('definition of net %s dir=%s and wid "%s" is wrong'%(Name,Dir,WW))
+                        logs.log_error('definition of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
                 return
             if Net[0]=='subbus':
                 Name = Net[1]
@@ -561,13 +567,13 @@ class module_class:
             if Net[0] == 'repeat':
                 self.check_net_def(Net[2])
                 return
-            if Net[0] in MathOps+['question']:
+            if Net[0] in MathOps+['question','?']:
                 for NN in Net[1:]:
                     self.check_net_def(NN)
                 return
 
         logs.log_error('check_net_def module=%s net=%s (%s)'%(self.Module,Net,type(Net)))
-        traceback.print_stack()
+        traceback.print_stack(None,None,logs.Flog)
 
     def del_inst(self,Inst):
         Inst = clean_inst(Inst)
@@ -760,9 +766,39 @@ class module_class:
                     self.usedRtlNets[Item] = ['hard']
 
 
+def dump_always(Always,Fout):
+    if len(Always)==3:
+        
+        Timing = pr_timing(Always[0])
+        Statement = pr_stmt(Always[1],'    ',True)
+        Kind=Always[2]
+        while '$$$' in Statement:
+            ind = Statement.index('$$$')
+            if ind>80:
+                Repl='    \n'
+            else:
+                Repl = ''
+            Statement = Statement[:ind]+Repl+Statement[ind+4:]
+        Str = ''
+        if Timing=='':
+#                Fout.write('%s begin\n'%Kind)
+            Str += '%s begin\n'%Kind
+    
+        else:
+#            Fout.write('%s @(%s) begin\n'%(Kind,Timing))
+            Str += '%s @(%s) begin\n'%(Kind,Timing)
+
+#            Fout.write('%s'%Statement)
+#            Fout.write('end\n')
+        Str += Statement
+        Str += 'end\n'
+        if Fout: Fout.write(Str)
+        return Str
+    logs.log_err('dump_always %d %s'%(len(Always),Always))
+    return ''
 
 OPS =  ['~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
-KEYWORDS = string.split('unsigned if for ifelse edge posedge negedge list case default')
+KEYWORDS = string.split('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default')
 
 def support_set(Sig,Bussed=True):
     Set = support_set__(Sig,Bussed)
@@ -788,7 +824,7 @@ def support_set__(Sig,Bussed):
     if type(Sig) in [types.ListType,types.TupleType]:
         if len(Sig)==1:
             return support_set__(Sig[0],Bussed)
-        if Sig[0] in ['const','bin','hex','dig']:
+        if Sig[0] in ['const','bin','hex','dig','taskcall']:
             return []
         if Sig[0]=='curly':
             Ind = 1
@@ -824,12 +860,16 @@ def support_set__(Sig,Bussed):
         if Sig[0] in OPS:
             return support_set__(Sig[1:],Bussed)
     
-        if Sig[0]=='question':
+        if Sig[0]in ['question','?']:
             while len(Sig)<4:  Sig.append('err')
             return support_set__(Sig[1],Bussed)+support_set__(Sig[2],Bussed)+support_set__(Sig[3],Bussed)
 
         res=[]
-        for X in Sig:
+        if Sig[0]=='named_begin':
+            Sigg = Sig[2:]
+        else:
+            Sigg = Sig[:]
+        for X in Sigg:
             XY = support_set__(X,Bussed)
             res.extend(XY)
         return res
@@ -932,9 +972,12 @@ def pr_timing(List):
             res = map(pr_expr,List[1:])
             res = map(str,res)
             return string.join(res,' or ')
+        if len(List)==1:
+            return pr_timing(List[0])
     return str(pr_expr(List))
 
 def pr_stmt(List,Pref='',Begin=False):
+    if List==None: return '%s;'%Pref
     if type(List)==types.TupleType:
         return pr_stmt(list(List),Pref,Begin)
     if (type(List)==types.IntType):
@@ -1031,8 +1074,8 @@ def pr_stmt(List,Pref='',Begin=False):
             res = map(pr_expr,List[2])
             res2 = string.join(res,',')
             return '%s%s(%s);\n'%(Pref,List[1],res2)
-        if List[0]in ['case','casez','casex']:
-            Case = List[0]
+        if List[0]in ['unique_case','case','casez','casex']:
+            Case = string.replace(List[0],'unique_','unique ')
             Cond = clean_br(pr_expr(List[1]))
             Str = '%s%s (%s)\n'%(Pref,Case,Cond)
             LLL = List[2]
@@ -1047,6 +1090,7 @@ def pr_stmt(List,Pref='',Begin=False):
                         Str += '%s%s: '%(Pref+'    ',pr_expr(Switch))
                     X = pr_stmt(Stmt,Pref+'    ')
                     X = string.lstrip(X)
+                    if (X==''): X = ';'
                     Str += X
                 elif (len(Item)==4)and(Item[0]=='default'):
                     Str += '%sdefault: ;\n'%(Pref+'   ')
@@ -1071,6 +1115,7 @@ def pr_stmt(List,Pref='',Begin=False):
             Str += '%send\n'%(Pref)
             return Str
         if List[0]=='taskcall':
+            if List[1]=='break': return ''
             Str = '%s%s;'%(Pref,List[1])
             return Str
         if List[0]=='disable':
@@ -1121,6 +1166,29 @@ def pr_stmt(List,Pref='',Begin=False):
 
             return Str0
 
+        if List[0]=='always':
+            Str = dump_always([List[1],List[2],List[0]],False)
+            return Str
+
+        Vars = matches.matches(List,'declare ? ? ?')
+        if Vars:
+            if Vars[2]==0: Vars[2]=''
+            elif (Vars[2][0]=='double'):
+                return '%s%s %s %s %s;\n'%(Pref,Vars[0],pr_wid(Vars[2][1]),Vars[1],pr_wid(Vars[2][2]))
+            else:
+                return '%s%s %s %s;\n'%(Pref,Vars[0],Vars[1],pr_wid(Vars[2]))
+
+        if List[0]=='declare':
+            Vars = matches.matches(List,'declare wire ? ?')
+            if Vars:
+                return 'wire %s;\n'%Vars[0]
+        if List[0]=='assigns':
+            Vars =  matches.matches(List[1],'= ? ?',False)
+            if Vars:
+                Dst = pr_expr(Vars[0])
+                Src = pr_expr(Vars[1])
+                return 'assign %s = %s;\n'%(Dst,Src)
+
         if List[0]=='reg':
             if (type(List[1])==types.StringType):
                 if List[1][0]=='width':
@@ -1132,10 +1200,16 @@ def pr_stmt(List,Pref='',Begin=False):
                 return 'reg %s;'%List[1]
                 
     if List in ['ILIA_FALSE','ILIA_TRUE']: return List                
+    if type(List)==types.StringType:
+        if List=='empty_begin_end': return ''
+
+    if (type(List)==types.ListType)and(len(List)==1):
+        return pr_stmt(List[0])
 
     if type(List)==types.TupleType:
         return pr_stmt(list(List))
     logs.log_err('untreated for prnt stmt %s %s'%(Pref,List))
+    traceback.print_stack(None,None,logs.Flog)
     return '[error %s]'%str(List)
 
 def split_expr(List,Pref):
@@ -1192,18 +1266,20 @@ def pr_dir(Dir):
 def pr_wid(Wid):
     if Wid==None:
         logs.log_err('wid is none error')
-        traceback.print_stack()
+        traceback.print_stack(None,None,logs.Flog)
         return 'wid is none error!!'
     if Wid==0:
         return ''
     if type(Wid)==types.IntType:
         return '[%s:0]'%(pr_expr(Wid))
-#    if (len(Wid)==3)and(Wid[0]=='double'):
-#        return '[%s:0][%s:0]'%(pr_expr(Wid[1]),pr_expr(Wid[2]))
+    if (len(Wid)==3)and(Wid[0]=='double'):
+        return '%s%s'%(pr_wid(Wid[1]),pr_wid(Wid[2]))
         
+    if (len(Wid)==3)and(Wid[0]=='packed'):
+        return pr_wid(Wid[1])+pr_wid(Wid[2])
     if len(Wid)==3:
         logs.log_err('pr_wid %s'%(str(Wid)))
-        print traceback.print_stack()
+        traceback.print_stack(None,None,logs.Flog)
         return str(Wid)
     return '[%s:%s]'%(pr_expr(Wid[0]),pr_expr(Wid[1]))
 
@@ -1235,6 +1311,8 @@ def pr_expr(What):
         return '%s %s'%(What[1],pr_expr(What[2]))
     if What[0]=='subbit':
         return '%s[%s]'%(pr_expr(What[1]),pr_expr(What[2]))
+    if What[0]=='sub_slice':
+        return '%s[%s][%s:%s]'%(pr_expr(What[1]),pr_expr(What[2]),pr_expr(What[3][0]),pr_expr(What[3][1]))
     if What[0]=='sub_slicebit':
         return '%s[%s][%s]'%(pr_expr(What[1]),pr_expr(What[2]),pr_expr(What[3]))
     if What[0]=='subbus':
@@ -1254,13 +1332,15 @@ def pr_expr(What):
     if What[0]=='const':
         return "%s'%s"%(What[1],What[2])
     if What[0]=='hex':
+        Hex = What[2]
+        while Hex[0]=='_': Hex = Hex[1:]
         if What[1] in ['0',0]:
-            return "'h%s"%(What[2])
-        AA = What[2]
-        while (len(AA)>1)and(AA[0]=='0'):
-            AA = AA[1:]
-        return "%s'h%s"%(What[1],AA)
+            return "'h%s"%(Hex)
+
+        if len(What)==2: return What[1]
+        return "%s'h%s"%(What[1],Hex)
     if What[0]=='dig':
+        if What[2][0]=="'": What[2] = What[2][1:]
         return "%s'd%s"%(What[1],What[2])
     if What[0] in MathOps+['!','~']:
         if len(What)==2:
@@ -1276,7 +1356,7 @@ def pr_expr(What):
         return res1
 
 
-    if What[0]=='question':
+    if What[0]in ['?','question']:
         Cond = pr_expr(What[1])
         Yes = pr_expr(What[2])
         if len(What)<4:
@@ -1333,7 +1413,7 @@ def pr_expr(What):
         return string.join(LL,',')
 
     logs.log_err('pr_expr %s'%(str(What)))
-    print traceback.print_stack()
+    traceback.print_stack(None,None,logs.Flog)
 
     return str('error '+str(What))
 
@@ -1435,7 +1515,7 @@ def compute1(Item):
 
 
     print 'compute1 in moduleClass faiuled on "%s" %s'%(Item,type(Item))
-    traceback.print_stack()
+    traceback.print_stack(None,None,logs.Flog)
     return ''%str(Item) 
 
 
@@ -1492,11 +1572,11 @@ def hashit(End):
 def is_double_def(Wid):
     if type(Wid)not in [types.TupleType,types.ListType]:
         return False
-    if (len(Wid)==3)and(Wid[0]=='double'):
+    if (len(Wid)==3)and(Wid[0] in ['packed','double']):
         return True
     if len(Wid)!=2:
         logs.log_err('bad width definition, ilia!  %s '%(str(Wid)))
-        traceback.print_stack()
+        traceback.print_stack(None,None,logs.Flog)
         return False
     return False        
     
@@ -1573,3 +1653,12 @@ def allReady(Src,Ready):
     for Item in Src:
         if Item not in Ready: return False
     return True
+
+def is_external_dir(Dir):
+    return ('input' in Dir)or('output' in Dir)or('inout' in Dir)
+
+
+def myExtras(Token):
+    return Token in string.split('$high $signed empty_begin_end unique_case')
+
+

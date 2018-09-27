@@ -75,7 +75,7 @@ LIST0 = string.split('''
     Architecture Of Signal  Process If Then Else Variable Range Wait  Until
     To And  Elsif Not Or Xor Xnor Nor Nand Case When Others Component Map For Loop Exit Srl
     Type Assert Report Generic Buffer Array Generate Alias
-    Record Subtype
+    Record Subtype Configuration
 ''')
 LIST1 = {'token':'Identifier','dotted':'DOTTED'
     ,'number':'DecimalInt'

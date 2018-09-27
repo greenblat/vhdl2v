@@ -13,7 +13,6 @@ def alwayses(Mod):
     for Always in Mod.alwayses:
         Sense = Always[0]
         declareRegs(Mod,Always[1])
-        print 'always>>>>>>',len(Always[1]),Always[1][0]
         if (len(Always[1])==4)and(Always[1][0] in ['if','ifelse']):
             Top = Always[1]
             if Top[0]=='ifelse':
@@ -26,6 +25,7 @@ def alwayses(Mod):
                     Always[0]='*'
             elif Top[0]=='if':
                 ClkRst = extractClkRst(Top)
+                print '>>>>>>>>iextractClkRst>>',ClkRst
                 if type(ClkRst)==types.TupleType:
                     Clk,_ = ClkRst
                     Always[0] = Clk
@@ -72,6 +72,18 @@ def extractClkRst(Top):
     if Vars:
         return  ['edge','negedge',Vars[0]],False
         
+
+    Vars =  matches.matches(Top,['&', ['functioncall', 'event', '?'], ['==', '?', '?']])
+    if Vars:
+        if Vars[0]==Vars[1]:
+            if notZeroValue(Vars[2]):
+                return  ['edge','posedge',Vars[0]],False
+            else:
+                return  ['edge','negedge',Vars[0]],False
+        logs.log_error('?????? vars=%s'%str(Vars)) 
+        return []
+
+
     if len(Top)==4:
         Vars =  matches.matches(Top[1],'== ? ?')
         if Vars:
@@ -134,7 +146,7 @@ def scanForRegs(Struct):
     if (type(Struct) ==  types.ListType)and(len(Struct)==1):
         return scanForRegs(Struct[0])
     if Struct==[]: return []
-    if (type(Struct) in [types.TupleType,types.ListType])and(Struct[0]=='<='):
+    if (type(Struct) in [types.TupleType,types.ListType])and(Struct[0] in ['=','<=']):
         Nets = module_class.support_set(Struct[1],False)
         for Net in Nets:
             if Net not in Regs: Regs.append(Net)
@@ -168,11 +180,11 @@ def scanForRegs(Struct):
             More = scanForRegs(Struct[4])
             return [R1]+More
 
-        logs.log_error('scanForRegs encountered "%s"'%str(Struct))
+        logs.log_error('scanForRegs encountered(0) "%s"'%str(Struct))
         
     if type(Struct) in [types.StringType,types.IntType]: return []
 
-    logs.log_error('scanForRegs encountered "%s"'%str(Struct))
+    logs.log_error('scanForRegs encountered(1) "%s"'%str(Struct))
     return Regs
 
 

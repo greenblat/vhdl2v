@@ -105,7 +105,7 @@ def uniq(What):
 def step_machine(state):
     List = States[state]
     (Tok,Kind,Lnum,Pos)=Lex[0]
-    if Verbose: logs.log_info('yacc %s %s %s %s %s'%(Tok,Kind,Lnum,Pos,state))
+    if Verbose: logs.log_info('yacc stepper tok=%s kind=%s lnum=%s pos=%s state=%s'%(Tok,Kind,Lnum,Pos,state))
 #    logs.log_info('    LIST = %s'%str(List))
     for (Act,Param,Next) in List:
 #        logs.log_info('try %s %s %s'%(Act,Param,Next))

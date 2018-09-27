@@ -26,6 +26,9 @@ def addModule(Name):
 def addModuleParam(Name,Val):
     Current.parameters[string.lower(Name)]=Val
 
+def add_function(Name,Wid,Defs,Statement):
+    Current.add_function(Name,Wid,Defs,Statement)
+
 def addWire(Name,Dir,From=0,To=0):
     Dir = verilogDir[Dir]
     if type(Name)==types.ListType:
@@ -331,6 +334,7 @@ def reworkExpr(Expr):
             return ['case',Cond,Res]
 
     logs.log_error('reworkExpr %d %s %s'%(len(Expr),type(Expr),str(Expr)))
+    logs.pStack()
     return Expr
 
 
