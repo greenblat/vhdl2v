@@ -1097,6 +1097,7 @@ def getVarAsgn(List,Adb):
     if Vars:
         Item = Vars[0]
         Expr = getExpr(Item,Adb)
+        print 'getVarAsgn',Item,Expr
         return Expr
     logs.log_error('getVarAsgn failed on "%s"'%(str(List)))
     return 0
@@ -1532,11 +1533,18 @@ def matches(List,Seq):
     if Vars==[]: return True 
     return Vars 
      
-
+DBG = 0
+def cntr():
+    global DBG
+    DBG += 1
+    return DBG
 
 def getExpr(Root,Adb,Father='none'):
     TRACE.append(('expr',Root))
+    DD = cntr()
+    print '>>>enter',DD,Root
     Res = getExpr__(Root,Adb,Father)
+    print '         %d            >>>exit'%DD,Res
     TRACE.pop(-1)
     return Res
 
