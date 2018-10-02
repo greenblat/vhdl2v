@@ -5,7 +5,7 @@ import logs
 def main():
     Fname = sys.argv[1]
     workFile(Fname)
-
+Ok = True
 def workFile(Fname):
     if not os.path.exists(Fname):
         logs.log_error('cannot open file %s'%Fname)
@@ -13,16 +13,16 @@ def workFile(Fname):
     File = open(Fname)
     AbsPath = absPath(Fname)
     Wrds = []
-    while 1:
+    while Ok:
         line = File.readline()
         if line=='': 
             work(Wrds,AbsPath,Fname)
             return 
-        for Chr in ':()#,':
+        for Chr in ':()#,;':
             line = string.replace(line,Chr,' %s '%Chr)
+        if '//' in line: line = line[:line.index('//')]
         line = string.replace(line,'/*',' /* ')
         line = string.replace(line,'*/',' */ ')
-        if '//' in line: line = line[:line.index('//')]
         wrds = string.split(line)
         Wrds.extend(wrds)
         if len(wrds)==0:
@@ -31,12 +31,17 @@ def workFile(Fname):
             Wrds = work(Wrds,AbsPath,Fname)
 
 def work(Wrds,AbsPath,Fname):
+    global Ok
     ok,Wrds = removeRemarks(Wrds)
     if not ok: return Wrds
     if 'endmodule' not in Wrds: return Wrds
     if 'module' not in Wrds:
         logs.log_error('work got endmodule but not module')
-        return Wrds
+        Ok = False
+        Gerr = open('errors.all','a')
+        Gerr.write('work got endmodule but not module in file=%s'%Fname)
+        Gerr.close()
+        return []
     
     Includes = extractIncludes(Wrds,AbsPath)
 
@@ -76,6 +81,7 @@ def joinPaths(Head,Path):
 
 def doTheJob(This,AbsPath,Fname,Includes):
     This = cleanParams(This)
+    This,Imports = cleanImports(This)
     if This[2]=='(':
         Module = This[1]
     else:
@@ -102,6 +108,26 @@ def report(Module,Sons,AbsPath,Fname,Includes):
         Fout.write('son %s\n'%Son)
     Fout.close()        
                 
+
+def cleanImports(This):
+    Res = []
+    Imports=[]
+    ind=0
+    while ind<len(This):
+        Token = This[ind]
+        if Token=='import':
+            Ptr = ind+1
+            while This[Ptr] !=';':  Ptr += 1
+            ind = Ptr+1
+            Imports.append(This[ind+1])
+        else:
+            Res.append(Token)
+            ind += 1
+    return Res,Imports            
+
+            
+
+
 KEYWORDS = string.split('module for if else case end endcase when begin always')            
 def goodToken(Token):
     if Token[0] not in string.letters: return False
