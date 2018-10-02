@@ -7,15 +7,21 @@ def main():
     workInFile(File)
     print DATA['entity'],DATA['architecture'],len(DATA['insts'])
     if DATA['entity'] == DATA['architecture']:
-        createSonsFile(DATA['entity'],DATA['insts'],DATA['uses'])
+        createSonsFile(Fname,DATA['entity'],DATA['insts'],DATA['uses'])
+    else:
+        Fempty = open('empty.files','a')
+        Fempty.write('%s\n'%Fname)
+        Fempty.close()
 
 
-def createSonsFile(Module,Sons,Uses):
+
+def createSonsFile(Fname,Module,Sons,Uses):
     Fout = open('sons/%s.sons'%(Module),'w')
+    Fout.write('fname vhdl %s\n'%(Fname))
     for Son in Sons:
-        Fout.write('%s  %s son\n'%(Module,Son))
+        Fout.write('son %s  %s\n'%(Module,Son))
     for Use in Uses:
-        Fout.write('%s  %s use\n'%(Module,Use))
+        Fout.write('use %s  %s\n'%(Module,Use))
     Fout.close()
 
 def workInFile(File):
@@ -35,11 +41,13 @@ def workInFile(File):
             WRDS = work(WRDS)
 state = 'idle'
 DATA = {}
+DATA['entity'] = 'none'
+DATA['architecture'] = 'blank'
 DATA['insts'] = []
 DATA['uses'] = []
 def work(Words):
     global state
-
+    Len = len(Words)
     Ok = True
     while Ok:
         Find = lookFor(Words,'use ? ;')
@@ -88,7 +96,9 @@ def work(Words):
                 Words = Words[Start+3:]
             else:
                 Ok=False
-             
+    if len(Words)==Len:
+        Lim = max(Len-100,0)
+        if Lim>0: Words = Words[Lim:]
 
     return Words
         
