@@ -93,9 +93,9 @@ def doTheJob(This,AbsPath,Fname,Includes):
             if goodToken(This[ind-2])and goodToken(This[ind-1]):
                 Type = This[ind-2]
                 if Type not in Sons: Sons.append(Type)
-    report(Module,Sons,AbsPath,Fname,Includes)                
+    report(Module,Sons,AbsPath,Fname,Includes,Imports)                
 
-def report(Module,Sons,AbsPath,Fname,Includes):
+def report(Module,Sons,AbsPath,Fname,Includes,Imports):
     if not os.path.exists('sons'):
         os.mkdir('sons')
     Fout = open('sons/%s.sons'%Module,'w')
@@ -105,7 +105,9 @@ def report(Module,Sons,AbsPath,Fname,Includes):
     for Inc in Includes:
         Fout.write('include %s\n'%Inc)
     for Son in Sons:
-        Fout.write('son %s\n'%Son)
+        Fout.write('son %s %s\n'%(Module,Son))
+    for Son in Imports:
+        Fout.write('import %s %s\n'%(Module,Son))
     Fout.close()        
                 
 
