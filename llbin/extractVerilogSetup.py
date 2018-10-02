@@ -101,7 +101,7 @@ def report(Module,Sons,AbsPath,Fname,Includes,Imports):
     Fout = open('sons/%s.sons'%Module,'w')
     Fout.write('module %s\n'%Module)
     Fout.write('abspath %s\n'%AbsPath)
-    Fout.write('fname %s\n'%Fname)
+    Fout.write('fname verilog %s\n'%Fname)
     for Inc in Includes:
         Fout.write('include %s\n'%Inc)
     for Son in Sons:
