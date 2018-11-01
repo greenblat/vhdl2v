@@ -207,7 +207,8 @@ def gatherBraces(Lex,St='(',En=')'):
             ind += 1
     return Lex 
 
-def pStack():
+def pStack(Txt=''):
+    if Txt!='': log_error(Txt)
     traceback.print_stack(None,None,Flog)
     Flog.write('\n\n\n')
 

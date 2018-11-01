@@ -61,6 +61,7 @@ def main():
         dones = removeUnused(Adb)
     print 'scan db'
     scanStuff_new(Adb)
+    reportScanned()
     print 'turn to verilog'
     makeVerilog(Adb)
     print 'dumps and saves'
@@ -68,6 +69,12 @@ def main():
     reportAdb(Adb,'fff4')
     savePackages()
 
+def reportScanned():
+    logs.log_info('\n\n\n\n\n scanned')
+    logs.log_info('scanned types  %s'%(TYPES))
+    logs.log_info('scanned ent  %s'%(ENTITIES))
+    logs.log_info('scanned arch %s'%(ARCHITECTURES))
+    logs.log_info('scanned \n\n\n\n')
 
 def cleanComas(Adb):
     for Key in Adb:
@@ -84,10 +91,10 @@ def cleanComas(Adb):
 def rounds0(Adb):
     while True:
         Bef = len(Adb.keys())
-        info('rounds0 bef=%d'%Bef)
+#        info('rounds0 bef=%d'%Bef)
         oneRound0(Adb)
         Aft = len(Adb.keys())
-        info('rounds0 aft %d -> %d'%(Bef,Aft))
+#        info('rounds0 aft %d -> %d'%(Bef,Aft))
         if Aft==Bef: return
 
 
@@ -451,7 +458,7 @@ def getList_new__(Item,Adb):
         FF = getList_flat1('..concurrent_statement..',Adb[Vars[1]],Adb)
         BB = []
         for Item in FF:
-            if len(Item)==2:
+            if is_in_db(Item,Adb):
                 BB.append(getList_new(Adb[Item],Adb))
             else:
                 BB.append(getList_new(Item,Adb))
@@ -572,6 +579,8 @@ def getList_new__(Item,Adb):
         Dst = getExpr(Vars[0],Adb)
         return [('<=',Dst,Expr)]
 
+    if Item[0][0]=='ATTRIBUTE':
+        return []
 
     Vars = matches(Item,'RECORD !element_declaration !..element_declaration.. END RECORD')
     if Vars:
@@ -1005,6 +1014,11 @@ def getList_new__(Item,Adb):
     if Vars:
         return [getExpr(Vars[0],Adb),getExpr(Vars[1],Adb)]
 
+    Vars = matches(Item,'!subprogram_specification IS BEGIN_ !sequence_of_statements END')
+    if Vars:
+        L1 = getList_new(Adb[Vars[0]],Adb)
+        L2 = getList_new(Adb[Vars[1]],Adb)
+        return ('function',L1,L2)
 
     logs.log_error('getList_new failed on "%s"'%str(Item))
     reportTrace(TRACE)
@@ -1459,7 +1473,7 @@ def addWire(Net,Wid):
         mod.addWire(Net,'wire',(31,0))
     elif Wid[0]=='std_logic_vector':
         mod.addWire(Net,'wire',Wid[1])
-    elif Wid=='integer':
+    elif Wid in ['integer','natural']:
         mod.addWire(Net,'wire',(31,0))
     elif Wid in ['unsigned','positive']:
         mod.addWire(Net,'wire',(31,0))
@@ -1501,7 +1515,7 @@ KNOWNFUNCTIONS = string.split('ext sxt resize conv_std_logic_vector conv_integer
 MGROUPS={}
 MGROUPS['dir'] = string.split('IN OUT INOUT BUFFER')
 MGROUPS['wire'] = string.split('unsigned positive std_logic std_logic_vector')
-def matches(List,Seq):
+def matches(List,Seq,Where=''):
     Lseq = string.split(Seq)
     if len(List)!=len(Lseq): return False
     Vars=[]
@@ -1530,6 +1544,7 @@ def matches(List,Seq):
             Vars.append(List[ind])
         elif (Iseq!=List[ind][0])and(Iseq!=List[ind]):
             return False
+    if Where!='': info('matches text=%s'%(Where))
     if Vars==[]: return True 
     return Vars 
      
@@ -1551,6 +1566,7 @@ def getExpr(Root,Adb,Father='none'):
 
 BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
 VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
+VRELATION = {'EQSym':'==','GTSym':'>','LTSym':'<'}
     
 def getExpr__(Root,Adb,Father):
     if type(Root)==types.IntType: return Root
@@ -1580,19 +1596,23 @@ def getExpr__(Root,Adb,Father):
         return 0
     Vars =  matches(Root,"OTHERS => ?")
     if Vars:
-        return getExpr(Vars[0],Adb)
+        return ('others',getExpr(Vars[0],Adb))
 
     Vars = matches(Root,'!simple_expression !.relop__simple_expression.')
     if Vars:
         AA = getExpr(Adb[Vars[0]],Adb)
         BB = Adb[Vars[1]]
-        Vars = matches(BB,'EQSym ?')
-        if Vars:
-            CC = getExpr(Vars[0],Adb)
-            return ['==',AA,CC]
-        
+
+        if BB[0][0] in ['EQSym','LTSym','GTSym']:
+            Vars2 = matches(BB,'? ?')
+            if Vars2:
+                CC = getExpr(Vars2[1],Adb)
+                Comp = VRELATION[BB[0][0]]
+                return [Comp,AA,CC]
+
+
         Res = (AA,Adb[Vars[1]])
-        logs.log_error('getExpr on simple_expression relop_simpl.. got "%s" "%s"'%(AA,BB))
+        logs.log_error('getExpr on simple_expression relop_simpl.. got AA="%s" BB="%s"'%(AA,BB))
         return getExpr(Res,Adb)
 
     if type(Root)==types.ListType:
@@ -1649,10 +1669,23 @@ def getExpr__(Root,Adb,Father):
     if (len(Root)==3)and(Root[1][0] == "'"):
         return ['funccall',Root[2][0],Root[0][0]]
 
-    if (len(Root)==2)and(type(Root)==types.ListType)and(Root[0] in Adb)and(Root[1] in Adb):
-        Expr = getExpr(Root[0],Adb)
-        XX =  getExpr(Adb[Root[1]],Adb)
-        return tuple(XX)
+
+    Vars =  matches(Root,"!element_association !...element_association..",1726)
+    if Vars:
+        Y = getExpr(Adb[Vars[0]],Adb,'(el el) 0')
+        Z = getExpr(Adb[Vars[1]],Adb,'(el el) 1')
+        if Z[0]=='weird':
+            return ['weird',Y]+Z[1:]
+        return ['weird',Y,Z]
+
+    Vars =  matches(Root,"!...element_association.. !element_association",1732)
+    if Vars:
+        Y = getExpr(Adb[Vars[0]],Adb,'(el el) 0')
+        Z = getExpr(Adb[Vars[1]],Adb,'(el el) 1')
+        if Z[0]=='weird':
+            return ['weird',Y]+Z[1:]
+        return ['weird',Y,Z]
+
 
     Vars =  matches(Root,"? Dot ?")
     if Vars:
@@ -1693,7 +1726,16 @@ def getExpr__(Root,Adb,Father):
         Range = getExpr(Vars[1],Adb)
         return ('for',Cond,Range)
 
-    Vars =  matches(Root,"? LeftParen ? !...element_association.. RightParen")
+    Vars =  matches(Root,"LeftParen !element_association !...element_association.. RightParen",1719)
+    if Vars:
+        Y = getExpr(Vars[0],Adb,'(el el) 0')
+        Z = getExpr(Adb[Vars[1]],Adb,'(el el) 1')
+        if Z[0]=='weird':
+            return ['weird',Y]+Z[1:]
+        return ['weird',Y,Z]
+        
+
+    Vars =  matches(Root,"? LeftParen ? !...element_association.. RightParen",1739)
     if Vars:
         Y = getExpr(Vars[1],Adb)
         Z = getExpr(Adb[Vars[2]],Adb,'element_association')
@@ -1740,7 +1782,7 @@ def getExpr__(Root,Adb,Father):
 
     Vars = matches(Root,'OTHERS ?')
     if Vars:
-        return getExpr(Vars[0],Adb)
+        return ('others',getExpr(Vars[0],Adb))
 
     Vars = matches(Root,'? WHEN !expression ELSE')
     if Vars:
@@ -1801,6 +1843,13 @@ def getExpr__(Root,Adb,Father):
             return res
         
         
+    if (len(Root)==2)and(type(Root)==types.ListType)and(Root[0] in Adb)and(Root[1] in Adb):
+        Expr1 = getExpr(Root[0],Adb)
+        Expr2 =  getExpr(Adb[Root[1]],Adb)
+        print 'root2',Expr1,Expr2
+        if Expr1[0]=='subbit':
+            return ('double_sub',Expr1[1],Expr1[2],Expr2)
+        return tuple(Expr2)
 
 
     logs.log_error('getExpr got %s from %s'%(str(Root),Father))
@@ -1851,7 +1900,8 @@ def reportAdb(Adb,Which='stam'):
         List = Adb[Key]
         for Item in List:
             if len(Item)==2:
-                if Item not in Adb:
+                Tuple = tuple(Item)
+                if Tuple not in Adb:
                     info('item %s is not in adb'%(str(Item)))
 
 

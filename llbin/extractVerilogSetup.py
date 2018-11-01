@@ -134,6 +134,8 @@ KEYWORDS = string.split('module for if else case end endcase when begin always')
 def goodToken(Token):
     if Token[0] not in string.letters: return False
     if Token in KEYWORDS: return False
+    for Chr in Token: 
+        if Chr not in string.letters+'_': return False
     return True
     
 def cleanParams(Wrds):

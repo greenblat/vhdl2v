@@ -62,6 +62,12 @@ def addWire(Name,Dir,From=0,To=0):
         Current.nets[Name] = (Dir,Wid)
         return
 
+    Vars = matches.matches(From,['array', ['range', '?', '?'], '?'])
+    if Vars:
+        Wid = (Vars[0], Vars[1])
+        Current.nets[Name] = (Dir,Wid)
+        logs.log_error('mmmmmmmmm %s'%(str(Vars[2])))
+        return
 
     Vars = matches.matches(From,('array', ('range', '?', '?'), ('std_logic_vector', ('?', '?'))))
     if Vars:
@@ -232,19 +238,37 @@ def reworkExpr(Expr):
     if (type(Expr)==types.TupleType)and(len(Expr)==1):
         return reworkExpr(Expr[0])
     if Expr==[]: return []
+
+
+    if Expr[0]=='weird':
+        Base = 0
+        LL = Expr[1:]
+        LL.reverse()
+        for  Item in LL:
+            if Item[0]=='others':
+                Base = valuex(Item[1])
+            elif Item[0]=='=>':
+                Where = Item[1]
+                Val   = valuex(Item[2])
+                Val = Val<<Where
+                Base = Base | Val
+        return Base
+
     if Expr[0] in KNOWNOPS:
         Res = [Expr[0]]
         for Item in Expr[1:]:
             Fixed = reworkExpr(Item)
             Res.append(Fixed)
         return Res
+    if (Expr[0] == 'others')and(len(Expr)==2):
+        return reworkExpr(Expr[1])
     if Expr[0] == 'concat':
         AA = reworkExpr(Expr[1])
         BB = reworkExpr(Expr[2])
         if listtuple(AA)and(AA[0]=='curly'):
             return ['curly']+AA[1:]+[BB]
         return ['curly',AA,BB]
-    if Expr[0] == 'subbus':
+    if Expr[0] in ['bin','dig','hex','subbus']:
         return Expr
     if Expr[0] == ':=':
         A0 = reworkExpr(Expr[1])
@@ -254,6 +278,9 @@ def reworkExpr(Expr):
         A0 = reworkExpr(Expr[1])
         A1 = reworkExpr(Expr[2])
         return ('<=',A0,A1)
+    if Expr[0] == 'double_sub':
+        return Expr
+
     if Expr[0] == 'subbit':
         if (type(Expr[2])==types.ListType)and(Expr[2][0]=='funccall'):
             if (Expr[2][1]=='RANGE'):
@@ -333,7 +360,7 @@ def reworkExpr(Expr):
                     logs.log_error('case rework got %s %s'%(Item,str(Expr)))
             return ['case',Cond,Res]
 
-    logs.log_error('reworkExpr %d %s %s'%(len(Expr),type(Expr),str(Expr)))
+    logs.log_error('moduleBuilder reworkExpr len=%d type=%s expr=%s'%(len(Expr),type(Expr),str(Expr)))
     logs.pStack()
     return Expr
 
@@ -367,7 +394,7 @@ def reworkIf(IF):
             IF = ['ifelse',Cond,Yes,No]
         return IF
 
-    logs.log_error('reworkIf got %d %s'%(len(IF),IF))
+    logs.log_error('moduleBuilder: reworkIf got %d %s'%(len(IF),IF))
     return IF
 
 def putElse(No,Else):
@@ -494,4 +521,9 @@ def reworkCaseCond(Item):
             return res
     return [Item]
 
+def valuex(Expr):
+    if Expr[0]=='bin':
+        return eval(str(Expr[2]))
+    logs.pStack('bad valuex "%s"'%str(Expr))
+    return 0
 

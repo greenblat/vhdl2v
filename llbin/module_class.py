@@ -228,9 +228,10 @@ class module_class:
         Fout.write('%s %s'%(self.Kind,pr_expr(self.Module)))
         if self.parameters.keys()!=[]:
             Pref=''
-            Fout.write(' #( parameter ')
+            Fout.write(' #( ')
             for Prm in self.parameters:
-                Fout.write('%s%s = %s'%(Pref,pr_expr(Prm),pr_expr(self.parameters[Prm])))
+                Fout.write('%sparameter %s = %s'%(Pref,pr_expr(Prm),pr_expr(self.parameters[Prm])))
+                if Prm in self.nets: self.nets.pop(Prm)
                 Pref=','
             Fout.write(') ')
         IOS=[]
@@ -798,7 +799,7 @@ def dump_always(Always,Fout):
     return ''
 
 OPS =  ['~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
-KEYWORDS = string.split('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default')
+KEYWORDS = string.split('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default double_sub')
 
 def support_set(Sig,Bussed=True):
     Set = support_set__(Sig,Bussed)
@@ -1176,7 +1177,7 @@ def pr_stmt(List,Pref='',Begin=False):
             elif (Vars[2][0]=='double'):
                 return '%s%s %s %s %s;\n'%(Pref,Vars[0],pr_wid(Vars[2][1]),Vars[1],pr_wid(Vars[2][2]))
             else:
-                return '%s%s %s %s;\n'%(Pref,Vars[0],Vars[1],pr_wid(Vars[2]))
+                return '%s%s %s %s;\n'%(Pref,Vars[0],pr_wid(Vars[2]),Vars[1])
 
         if List[0]=='declare':
             Vars = matches.matches(List,'declare wire ? ?')
@@ -1313,7 +1314,7 @@ def pr_expr(What):
         return '%s[%s]'%(pr_expr(What[1]),pr_expr(What[2]))
     if What[0]=='sub_slice':
         return '%s[%s][%s:%s]'%(pr_expr(What[1]),pr_expr(What[2]),pr_expr(What[3][0]),pr_expr(What[3][1]))
-    if What[0]=='sub_slicebit':
+    if What[0] in ['double_sub','sub_slicebit']:
         return '%s[%s][%s]'%(pr_expr(What[1]),pr_expr(What[2]),pr_expr(What[3]))
     if What[0]=='subbus':
         if len(What)==4:
@@ -1412,9 +1413,7 @@ def pr_expr(What):
             LL.append(Y)
         return string.join(LL,',')
 
-    logs.log_err('pr_expr %s'%(str(What)))
-    traceback.print_stack(None,None,logs.Flog)
-
+    logs.pStack('pr_expr %s'%(str(What)))
     return str('error '+str(What))
 
 
@@ -1514,8 +1513,7 @@ def compute1(Item):
             return compute1(Item[2])
 
 
-    print 'compute1 in moduleClass faiuled on "%s" %s'%(Item,type(Item))
-    traceback.print_stack(None,None,logs.Flog)
+    logs.pStack('compute1 in moduleClass faiuled on "%s" %s'%(Item,type(Item)))
     return ''%str(Item) 
 
 
