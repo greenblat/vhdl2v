@@ -34,6 +34,7 @@ class module_class:
         self.stat_types={}
         self.deepInstNames = False
         self.inventedNets = 0
+        self.extTypes = []
     def cleanZeroNets(self):
         return
     def create_stat_types(self):
@@ -75,8 +76,14 @@ class module_class:
             self.inventedNets += 1
             self.add_sig(Name,Dir,Wid)
             return Name
-        if Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar']:
+        ww = string.split(Dir)
+        if (type(Wid)==types.StringType)and(Wid in Dir):
+            self.nets[Name]=(Dir,Wid)
+        elif (len(ww)==2)and(ww[0] in ['input','output'])and(ww[1] in self.extTypes):
+            self.nets[Name]=(Dir,Wid)
+        elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar']:
             logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
+            logs.pStack()
             
         if Dir=='genvar':
             self.genvars[Name]=True
@@ -133,7 +140,8 @@ class module_class:
                     self.netParams[Name][Prm]=Val
             except:
                 pass
-
+        elif (type(Wid)==types.StringType)and(Wid in Dir):
+            pass
         else:
             logs.log_err('add_sig %s (%s) got width %s'%(Name,Dir,Wid))
             traceback.print_stack(None,None,logs.Flog)
@@ -314,8 +322,15 @@ class module_class:
             Fout.write('`include "%s"\n'%(Prm))
         for Prm in self.localparams:
             Fout.write('localparam %s = %s;\n'%(pr_expr(Prm),pr_expr(self.localparams[Prm])))
+        for Name in self.typedefs:
+            List = self.typedefs[Name]
+            PP = pr_net_def(List,'','')
+            Fout.write('typedef %s %s;\n'%(PP,Name))
+#            Fout.write('typedef struct packed { %s } %s\n'%(PP,Name))
         for (Name,Dir,Wid) in NOIOS:
-            if is_double_def(Wid):
+            if Wid==Dir:
+                Fout.write('%s %s;\n'%(pr_dir(Dir),pr_expr(Name)))
+            elif is_double_def(Wid):
                 if Wid[0]=='packed':
                     Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name)))
                 else:
@@ -361,8 +376,6 @@ class module_class:
                     logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
             else:
                 logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
-        for Name,List in self.typedefs:
-            Fout.write('typedef struct packed { %s } %s\n'%(self.typedefs[Name],Name))
         for (Dst,Src,Strength,Dly) in self.hard_assigns:
             if (Dst=='//'):
                 Fout.write('// %s\n'%Src)
@@ -407,7 +420,7 @@ class module_class:
                 if (type(Item)==types.ListType)and(len(Item)==4):
                     Fout.write('%s %s %s;\n'%(Item[3],pr_wid(Item[2]),Item[1]))
                 else:
-                    logs.log_err('dump_function ldefs %s '%(Item))
+                    logs.log_err('dump_function ldefs %s '%(str(Item)))
         Fout.write(pr_stmt(X[2],''))
         Fout.write('endfunction\n')
 
@@ -921,7 +934,7 @@ class instance_class:
         Fout.write('(')
         Pref=' '
         res=[]
-        if ('pin0' in self.conns)and('pin1' in self.conns):
+        if 0 in self.conns:
             Pins = self.conns.keys()
             Pins.sort()
             for Pin in Pins:
@@ -1053,11 +1066,12 @@ def pr_stmt(List,Pref='',Begin=False):
             Yes = pr_stmt(List[2],Pref+'    ',True)
             if len(List)<4:
                 logs.log_err('illegal ifelse len=%d'%len(List))
-                return '<><><><>'
+                return '<alength is not 4><><><>'
             elif List[3]==[]:
-                return '<><><>'
+                logs.log_err('illegal ifelse len=%d'%len(List))
+                return '<><>empty<>\n'
             elif not List[3]:
-                return '<>fls<><>'
+                return '<>fls<><>tooshort'
             elif List[3][0] in ['ifelse','if']:
                 No = pr_stmt(List[3],Pref,True)
                 No = string.lstrip(No)
@@ -1096,7 +1110,7 @@ def pr_stmt(List,Pref='',Begin=False):
                 elif (len(Item)==4)and(Item[0]=='default'):
                     Str += '%sdefault: ;\n'%(Pref+'   ')
                 else:
-                    logs.log_err('bad case item "%s"'%str(Item))
+                    logs.log_err('module_class: bad case item "%s"'%str(Item))
             Str = Str + '%sendcase\n'%Pref
             return  Str
         if List[0]=='while':
@@ -1178,6 +1192,9 @@ def pr_stmt(List,Pref='',Begin=False):
                 return '%s%s %s %s %s;\n'%(Pref,Vars[0],pr_wid(Vars[2][1]),Vars[1],pr_wid(Vars[2][2]))
             else:
                 return '%s%s %s %s;\n'%(Pref,Vars[0],pr_wid(Vars[2]),Vars[1])
+
+        if List[0]=='return':
+            return 'return %s;\n'%pr_expr(List[1])
 
         if List[0]=='declare':
             Vars = matches.matches(List,'declare wire ? ?')
@@ -1343,6 +1360,10 @@ def pr_expr(What):
     if What[0]=='dig':
         if What[2][0]=="'": What[2] = What[2][1:]
         return "%s'd%s"%(What[1],What[2])
+    if What[0]=='**':
+        if What[1] in [2,'2']:
+            return '(1<<%s)'%(pr_expr(What[2]))
+        return '(%s ** %s)'%(pr_expr(What[1]),pr_expr(What[2]))
     if What[0] in MathOps+['!','~']:
         if len(What)==2:
             return '(%s%s)'%(What[0],pr_expr(What[1]))
@@ -1401,6 +1422,9 @@ def pr_expr(What):
         return Str
     if What[0]=='repeat':
         Str = '{%s{%s}}'%(pr_expr(What[1]),pr_expr(What[2]))
+        return Str
+    if What[0]=='return':
+        Str = 'return  %s'%(pr_expr(What[1]))
         return Str
 
     if (type(What)==types.ListType):
@@ -1659,4 +1683,14 @@ def is_external_dir(Dir):
 def myExtras(Token):
     return Token in string.split('$high $signed empty_begin_end unique_case')
 
-
+def pr_net_def(Wid,Dir,Name):
+    if Wid==Dir:
+        return '%s %s'%(pr_dir(Dir),pr_expr(Name))
+    if is_double_def(Wid):
+          if (Wid[0]=='packed'):
+              return '%s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name))
+          else:
+              return '%s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2]))
+    else:
+        return '%s %s %s'%(pr_dir(Dir),pr_wid(Wid),pr_expr(Name))
+    logs.log_error('pr_net_def got "%s" "%s" "%s"'%(Wid,Dir,Name))

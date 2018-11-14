@@ -17,6 +17,8 @@ import logs
 import moduleBuilder as mod
 import helpers
 import matches as mtc
+import db1
+import reworks
 
 info = logs.log_info
 
@@ -32,19 +34,33 @@ import cleanVhdl
 import vyaccer2
 import reworkMyLex
 import vhdllexer
-
+RunDir = '.'
 def main():
     if len(sys.argv)>1:
         Fname = sys.argv[1]
         cleanVhdl.run(Fname)
         vhdllexer.run_lexer('cleaned.vhd','lex.out')
         reworkMyLex.run('lex.out','lex2.out')
-        vyaccer2.run_yacc(False,'lex2.out','.','aaa.vhdl')
+        vyaccer2.run_yacc(False,'lex2.out','.',Fname)
 
-    info('starting vhdl2v by IliaG 4.sep.2018')
+    info('starting vhdl2v by IliaG 4.sep.2018 on %s'%Fname)
+    dbscan = db1.load_parsed(RunDir)
+    logs.log_info('TELL dbscan arch=%d ent=%d pckg=%d scn=%d'%(len(dbscan.Architectures.keys()), len(dbscan.Entities.keys()), len(dbscan.Packages.keys()), len(dbscan.Scanned)))
+
+    reworks.run(dbscan)
+    Fout = open('modules.v','w')
+    for Module in dbscan.Modules:
+        Mod = dbscan.Modules[Module]
+        Mod.dump_verilog(Fout)
+        Mod.dump()
+    Fout.close()
+
+    sys.exit()
+
     File = open('db0.pickle')
     Adb = pickle.load(File)
     reportAdb(Adb,'fff0')
+
     print 'step0'
     cleanComas(Adb)
     reportAdb(Adb,'fff1')
@@ -69,12 +85,76 @@ def main():
     reportAdb(Adb,'fff4')
     savePackages()
 
-def reportScanned():
-    logs.log_info('\n\n\n\n\n scanned')
-    logs.log_info('scanned types  %s'%(TYPES))
-    logs.log_info('scanned ent  %s'%(ENTITIES))
-    logs.log_info('scanned arch %s'%(ARCHITECTURES))
-    logs.log_info('scanned \n\n\n\n')
+def reportScanned(Fname='scanned.log'):
+    Fout = open(Fname,'w')
+    for Type in TYPES:
+        Fout.write('type %s %s\n'%(Type,TYPES[Type]))
+    for Ent in ENTITIES:
+        Code = ENTITIES[Ent]
+        Fout.write('entity %s %s\n'%(Ent,len(Code)))
+        for Cd in Code[0]:
+            Fout.write('entity0 %s %s\n'%(Ent,Cd))
+        for Cd in Code[1]:
+            Fout.write('entity1 %s %s\n'%(Ent,Cd))
+    for Arch in ARCHITECTURES:
+        Code = ARCHITECTURES[Arch]
+        Fout.write('arch %s %s\n'%(Arch,len(Code)))
+        for Cd in Code[0]:
+            Fout.write('0-a    %s\n'%(Cd))
+        for Cd in Code[1]:
+            if len(Cd)==1:
+                Cd = Cd[0]
+            if Cd[0]=='process':
+                Fout.write('1-a     %s %s %s\n'%(Cd[0],Cd[1],Cd[2]))
+                if len(Cd[3])==1:
+                    Cdx = Cd[3][0]
+                else:
+                    Cdx = Cd[3]
+                Str = niceCode(Cdx)
+                Fout.write('%s\n'%Str)
+            else:
+                Fout.write('2-a     %s\n'%(str(Cd)))
+    Fout.close()
+
+def cleanN(Str):
+    while Str[-1]=='\n':
+        Str = Str[:-1]
+    return Str +'\n'
+
+SPACE = '  '
+def niceCode(Code,Pref=''):
+    X = niceCode__(Code,Pref)
+    Y = cleanN(X)
+    return Y
+def niceCode__(Code,Pref=''):
+    if type(Code)==types.ListType:
+        res = ''
+        for Item in Code:
+            S0 = niceCode(Item,Pref+'   ')
+            res += S0+'\n'
+        return res
+    if type(Code)==types.TupleType:
+        if Code[0]=='<=':
+            return Pref+str(Code)+'\n'
+        elif Code[0]=='else':
+            Yes = niceCode(Code[1],Pref+SPACE)
+            res = Pref+'else\n'+Yes
+            return res
+        elif Code[0]=='ifelse':
+            Yes = niceCode(Code[2],Pref+SPACE)
+            No = niceCode(Code[3],Pref+SPACE)
+            res = Pref+str(Code[:2])+'\n'+Yes+No
+            return res
+        elif Code[0]=='if':
+            res = Pref+str(Code[:2])+'\n'
+            More = niceCode(Code[2],Pref+SPACE)
+            res += More
+            return res
+        logs.log_error('tuple %s'%Code[0])
+        return 'eeee '+str(Code[0])+'\n'
+
+    return Pref+str(Code)
+
 
 def cleanComas(Adb):
     for Key in Adb:
@@ -1458,9 +1538,15 @@ def treatSignals(L1,Module,Adb):
             Val = Item[3]
             treatSignals([['signal',Net,Item[2]]],Module,Adb)
             mod.addHardAssign(Net,Val)
-        elif Item[0]=='subprogram':
+        elif Item[0] in ['subprogram','function']:
             Head = Item[1][0]
-            mod.add_function(Head[1],Head[2],Item[2],Item[3])
+            Body = Item[2]
+            Name = Head[1]
+            Params = Head[2]
+            Wid = Head[3]
+            print 'function     ',Name,Wid,Params
+            mod.add_function(Name,Wid,Params,Body)
+
         else:
             logs.log_error('treat signal failed "%s" '%(str(Item)))
 
@@ -1511,7 +1597,7 @@ def justify(List,Seq):
             logs.log_info('mismatch (1) pos=%d look=%s act=%s'%(ind,Iseq,List[ind][0]))
             return 
     logs.log_info('matching %s ok'%Seq) 
-KNOWNFUNCTIONS = string.split('ext sxt resize conv_std_logic_vector conv_integer unsigned')
+KNOWNFUNCTIONS = string.split('ext sxt resize conv_std_logic_vector conv_integer unsigned to_unsigned to_integer signed')
 MGROUPS={}
 MGROUPS['dir'] = string.split('IN OUT INOUT BUFFER')
 MGROUPS['wire'] = string.split('unsigned positive std_logic std_logic_vector')
@@ -1564,8 +1650,8 @@ def getExpr(Root,Adb,Father='none'):
     return Res
 
 
-BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star AND OR DOWNTO GESym EQSym NESym /= ")
-VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * & | : >= == != !=')
+BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star ** AND OR DOWNTO GESym EQSym NESym /= ")
+VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * ** & | : >= == != !=')
 VRELATION = {'EQSym':'==','GTSym':'>','LTSym':'<'}
     
 def getExpr__(Root,Adb,Father):

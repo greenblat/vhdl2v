@@ -66,7 +66,7 @@ def addWire(Name,Dir,From=0,To=0):
     if Vars:
         Wid = (Vars[0], Vars[1])
         Current.nets[Name] = (Dir,Wid)
-        logs.log_error('mmmmmmmmm %s'%(str(Vars[2])))
+#        logs.log_error('mmmmmmmmm %s'%(str(Vars[2])))
         return
 
     Vars = matches.matches(From,('array', ('range', '?', '?'), ('std_logic_vector', ('?', '?'))))
