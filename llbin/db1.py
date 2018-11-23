@@ -51,7 +51,7 @@ class dataBaseClass:
 db = dataBaseClass()
 
 def load_db1(Fname):
-    File = open(Fname)
+    File = open(Fname,'rb')
     db.db = pickle.load(File)
     File.close()
 
@@ -86,7 +86,7 @@ def scan1(Key):
     Vars = matches.matches(List,'LIBRARY  !logical_name_list ?')
     if Vars:
         LL = get_list(Vars[0])
-        print 'library',LL
+        print('library %s'%str(LL))
         return
 
     Vars = matches.matches(List,'USE  !selected_name !...selected_name.. ?')
@@ -137,7 +137,7 @@ def scan1(Key):
 
 
 def inDb(Item):
-    return (type(Item)==types.TupleType)and(len(Item)==2)and(Item in db.db)
+    return (type(Item) is tuple)and(len(Item)==2)and(Item in db.db)
 
 def dumpScanned(db,Pref=''):
     File = open('%sscanned.dump'%Pref,'w')
@@ -147,8 +147,7 @@ def dumpScanned(db,Pref=''):
         if Kind=='archi':
             Str = '%s %s lens = io=%d prm=%d stuff=%d'%(Kind,Name,len(Item[2]),len(Item[3]),len(Item[4]))
             File.write('\n\n%s\n'%Str)
-            print Str
-            if type(Item[2])==types.ListType:
+            if type(Item[2]) is list:
                 for X in Item[2]:
                     File.write('item2 : %s\n'%(str(X)))
             else:
@@ -156,7 +155,7 @@ def dumpScanned(db,Pref=''):
 
             for X in Item[3]:
                 File.write('item3 : %s\n'%(str(X)))
-            if type(Item[4])==types.ListType:
+            if type(Item[4]) is list:
                 for X in Item[4]:
                     XX = nicePrint(X)
                     File.write('item4 : %s\n'%(XX))
@@ -166,7 +165,6 @@ def dumpScanned(db,Pref=''):
             Lens = map(len,Item)
             Str = '%s %s lens = %s'%(Kind,Name,Lens)
             File.write('\n\n%s\n'%Str)
-            print Str
             for ind,Li in enumerate(Item):
                 if ind>=2:
                     for X in Li:
@@ -175,7 +173,6 @@ def dumpScanned(db,Pref=''):
         elif Kind in ['package','package_body']:
             Str = '%s %s lens = stuff=%d'%(Kind,Name,len(Item[2]))
             File.write('\n\n%s\n'%Str)
-            print Str
             for X in Item[2]:
                 File.write('item2 : %s\n'%(str(X)))
         elif Kind in ['use']:
@@ -185,7 +182,7 @@ def dumpScanned(db,Pref=''):
     File.close()
 
 def dumpDataBase(db):
-    Keys = db.keys()
+    Keys = list(db.keys())
     Keys.sort()
     Fout = open('database.dump','w')
     for Key in Keys:
@@ -205,11 +202,11 @@ def get_list_db(Item,Verbose=False):
 
 
 def get_list__(Item):
-    if (type(Item)==types.ListType)and(len(Item)==1):
+    if (type(Item) is list)and(len(Item)==1):
         return get_list(Item[0])
-    if (type(Item)==types.TupleType)and(len(Item)==4):
+    if (type(Item) is tuple)and(len(Item)==4):
         return [Item[0]]
-    if (type(Item)==types.ListType)and(len(Item)==0):
+    if (type(Item) is list)and(len(Item)==0):
         return []
 
     if inDb(Item):
@@ -244,6 +241,11 @@ def get_list__(Item):
         L0 = get_list(db.db[Vars[0]])
         L1 = get_list(db.db[Vars[1]])
         return L0+L1
+    Vars = matches.matches(Item,'!local_generic_element !...local_generic_element..')
+    if Vars:
+        L0 = get_list(db.db[Vars[0]])
+        L1 = get_list(db.db[Vars[1]])
+        return L0+L1
     Vars = matches.matches(Item,'!formal_generic_element !...formal_generic_element..')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
@@ -273,6 +275,17 @@ def get_list__(Item):
         L1 = get_list(db.db[Vars[1]])
         return L0+L1
 
+    Vars = matches.matches(Item,'!...function_parameter_element.. ? !function_parameter_element')
+    if Vars:
+        L0 = get_list(db.db[Vars[0]])
+        L1 = get_list(db.db[Vars[1]])
+        return L0+L1
+
+    Vars = matches.matches(Item,'!sign !term')
+    if Vars:
+        L0 = get_list_db(Vars[0])
+        L1 = get_list_db(Vars[1])
+        return [(L0[0],L1[0])]
     Vars = matches.matches(Item,'!name !aggregate')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
@@ -285,6 +298,11 @@ def get_list__(Item):
         B = get_list(db.db[Vars[1]])
         C = get_list(db.db[Vars[2]])
         return [('when_else',A,B,C)]
+
+    Vars = matches.matches(Item,'GENERIC LeftParen !local_generic_list ? ?')
+    if Vars:
+        L0 = get_list(db.db[Vars[0]])
+        return [('generic',L0)]
 
     Vars = matches.matches(Item,'GENERIC LeftParen !formal_generic_list ? ?')
     if Vars:
@@ -475,9 +493,25 @@ def get_list__(Item):
 
     Vars = matches.matches(Item,'LeftParen !element_association  !...element_association.. !RightParen_ERR')
     if Vars:
-        L0 =  get_list(db.db[Vars[0]])
-        L1 =  get_list(db.db[Vars[1]])
+        L0 =  get_list_db(Vars[0])
+        L1 =  get_list_db(Vars[1])
         return L0+L1
+
+    Vars = matches.matches(Item,'!...procedure_parameter_element.. ? !procedure_parameter_element')
+    if Vars:
+        L0 =  get_list_db(Vars[0])
+        L1 =  get_list_db(Vars[1])
+        return L0+L1
+
+    Vars = matches.matches(Item,'LeftParen !procedure_parameter_element  !...procedure_parameter_element.. !RightParen_ERR')
+    if Vars:
+        L0 =  get_list_db(Vars[0])
+        L1 =  get_list_db(Vars[1])
+        return L0+L1
+    Vars = matches.matches(Item,'!.procedure_parameter_object_class. !identifier_list Colon !.procedure_parameter_mode. !type_mark !.constraint. !.VarAsgn__expression.')
+    if Vars:
+        logs.log_info('wtf')
+        return []
 
     Vars = matches.matches(Item,'!simple_expression !direction !simple_expression')
     if Vars:
@@ -598,6 +632,18 @@ def get_list__(Item):
         Op = get_list(db.db[Vars[1]])
         Op1  = get_list(db.db[Vars[2]])
         return [(Op,Op0,Op1)]
+    Vars = matches.matches(Item,'!relation..XOR__relation.. !XORXNOR  !relation')
+    if Vars:
+        Op0 = get_list(db.db[Vars[0]])
+        Op = get_list(db.db[Vars[1]])
+        Op1  = get_list(db.db[Vars[2]])
+        return [(Op,Op0,Op1)]
+
+    Vars = matches.matches(Item,'!relation..OR__relation.. OR  !relation')
+    if Vars:
+        Op0 = get_list(db.db[Vars[0]])
+        Op1  = get_list(db.db[Vars[1]])
+        return [('OR',Op0,Op1)]
     Vars = matches.matches(Item,'!relation ?t  !relation')
     if Vars:
         Op0 = get_list(db.db[Vars[0]])
@@ -722,6 +768,14 @@ def get_list__(Item):
         A = get_list(db.db[Vars[0]])
         return [('return',A)]
 
+    Vars = matches.matches(Item,'PROCEDURE !designator !.procedure_parameter_list.')
+    if Vars:
+        A = get_list_db(Vars[0])
+        B = get_list_db(Vars[1])
+        return [('taskhead',A,B)]
+    
+
+
     Vars = matches.matches(Item,'FUNCTION !designator !.function_parameter_list. RETURN !type_mark')
     if Vars:
         A = get_list(db.db[Vars[0]])
@@ -755,9 +809,16 @@ def get_list__(Item):
         A = get_list(db.db[Vars[0]])
         return A
 
+    Vars = matches.matches(Item,'SUBTYPE ?t IS !subtype_indication ?')
+    if Vars:
+        Def =get_list_db(Vars[1])
+        printl('def1 is %s'%str(Def))
+        return [('typedef',Vars[0],Def)]
+
     Vars = matches.matches(Item,'TYPE ?t IS !type_definition ?')
     if Vars:
-        Def = get_list(db.db[Vars[1]])
+        Def = get_list_db(Vars[1])
+        printl('def2 is %s  %s %s'%(Def,Vars[1],db.db[Vars[1]]))
         return [('typedef',Vars[0],Def)]
 
     Vars = matches.matches(Item,'LeftParen !enumeration_literal !...enumeration_literal.. ?')
@@ -890,7 +951,11 @@ def get_list__(Item):
         C = get_list(db.db[Vars[2]])
         return [('alias',A,B,C)]
 
-
+    Vars =  matches.matches(Item,'!name !Semicolon_ERR')
+    if Vars:
+        AA = get_list_db(Vars[0])
+#        logs.log_error('matches !name %d %s'%(len(AA),str(AA)))
+        return AA
 
 ############################################
     logs.log_err('get_list %s'%str(Item))
@@ -899,20 +964,20 @@ def get_list__(Item):
 
 
 def simplify(Item):
-    if type(Item) in [types.StringType,types.IntType]: return Item
+    if isinstance(Item,(str,int)): return Item
 
-    if type(Item)==types.ListType:
+    if type(Item) is list:
         if len(Item)==1:
             return simplify(Item[0])
         if len(Item)==0: return Item
         LL = Item
         while LL[-1]==[]: LL.pop(-1)
 
-        Res = map(simplify,LL)
+        Res = list(map(simplify,LL))
         return Res
 
-    if type(Item)==types.TupleType:
-        LL = map(simplify,Item)
+    if type(Item) is tuple:
+        LL = list(map(simplify,Item))
         while LL[-1]==[]: LL.pop(-1)
         if len(LL)==1: return LL[0]
         return tuple(LL)
@@ -923,7 +988,7 @@ def simplify(Item):
 def nicePrint(Item):
     Str = str(Item)
     if len(Str)<100: return Str
-    wrds = string.split(Str)
+    wrds = Str.split()
     Str = ''
     Lim = 100
     while wrds!=[]:
@@ -933,6 +998,9 @@ def nicePrint(Item):
             Lim += 100
     Str += '\n'        
     return Str
+
+def printl(Txt):
+    logs.log_info('TELL %s'%(Txt))
 
 if __name__=='__main__':
     main()

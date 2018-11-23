@@ -7,7 +7,6 @@ NewName = os.path.expanduser('~')
 sys.path.append('%s/verification_libs'%NewName)
 
 import logs
-print 'mmmmmmmmmmmmmmmmmmmmmmmmmmm '
 from vhdl_yacc_table import *
 def main():
     YaccTableName = False
@@ -58,7 +57,7 @@ def readlexfile(Flexname):
             Lex.append(('$end','$end',-1,-1))
             Flex.close()
             return
-        wrds = string.split(line)
+        wrds = line.split()
         if len(wrds)==0:
             pass
         elif len(wrds)==4:
@@ -73,7 +72,7 @@ def readlexfile(Flexname):
         elif (line[0]=='"'):
             Ind = string.index(line[1:],'"')
             Str = line[:Ind+2]
-            wrds = string.split(line[Ind+2:])
+            wrds = (line[Ind+2:]).split()
             Lex.append(tuple([Str]+wrds))
         elif (len(wrds)>4):
             wrds2 = wrds[-3:]
@@ -115,12 +114,10 @@ def step_machine(state):
                 Lex.pop(0)
                 return Next
         elif Act=='reduce':
-#            print matches_ok(Tok,Kind,Act,Param),Tok,Kind,Act,Param
             if compatibleGoto(Param,Kind) or (Param=='$default') or matches_ok(Tok,Kind,Act,Param):
                 Rule=Next
                 Name,Wrds = Rules[Rule]
                 Wrds=Wrds[:]
-#                print 'reduce action rule=%s name=%s wrds=%s'%(Rule,Name,Wrds)
                 Id = uniq(Name)
     #            Fout.write('reduce %s %d %s\n'%(Name,Id,Stack[-len(Wrds):]))
                 if len(Wrds)==0:
@@ -129,13 +126,11 @@ def step_machine(state):
                     addToDb(Name,Id,Stack[-len(Wrds):])
                 NST=state
                 while Wrds!=[]:
-    #                print 'work reduce wrds=%s stack=%s %s %s %s %s %s'%(Wrds,Stack,Lnum,Pos,Rule,Name,Wrds)
                     TT,KK,Lnum1,Pos1,NST = Stack.pop(-1)
                     Wrds.pop(0)
                 Lex.insert(0,(Name,Name,Id,-1))
                 return NST
         elif Act=='goto':
-#            print 'goto param=%s kind=%s %s'%(Param,Kind,Next)
             if compatibleGoto(Param,Kind):
                 Lex.pop(0)
                 Stack.append((Tok,Kind,Lnum,Pos,state))
@@ -171,14 +166,13 @@ def clean_up(List):
 def reportDb(RunDir):
     for Key in DataBase:
         Fout.write('%s %s\n'%(Key,DataBase[Key]))
-    Outf = open('%s/db0.pickle'%RunDir,'w')
+    Outf = open('%s/db0.pickle'%RunDir,'wb')
     pickle.dump(DataBase,Outf)
     Outf.close()
 
 
 
 def matches_ok(Tok,Kind,Act,Param):
-#    print 'matches_ok',(Tok==Param)or(Kind==Param),Tok,Kind,Act,Param
     if (Tok==Param)or(Kind==Param):
         return True
     return False

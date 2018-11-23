@@ -3,7 +3,7 @@ import logs
 import traceback
 import matches
 
-MathOps = string.split('** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&')
+MathOps = ('** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&').split()
 class module_class:
     def __init__(self,Name,Kind='module'):
         self.Module=Name
@@ -69,19 +69,19 @@ class module_class:
     def add_net(self,Name,Dir,Wid):
         self.add_sig(Name,Dir,Wid)
     def add_sig(self,Name,Dir,Wid):
-        if (type(Name)==types.StringType)and('[' in Name):
+        if (type(Name)is str)and('[' in Name):
             Name = Name[:Name.index('[')]
         if Name=='':
             Name = 'net_%d'%self.inventedNets
             self.inventedNets += 1
             self.add_sig(Name,Dir,Wid)
             return Name
-        ww = string.split(Dir)
-        if (type(Wid)==types.StringType)and(Wid in Dir):
+        ww = Dir.split()
+        if (type(Wid)is str)and(Wid in Dir):
             self.nets[Name]=(Dir,Wid)
         elif (len(ww)==2)and(ww[0] in ['input','output'])and(ww[1] in self.extTypes):
             self.nets[Name]=(Dir,Wid)
-        elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar']:
+        elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar','signed','unsigned']:
             logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
             logs.pStack()
             
@@ -96,11 +96,8 @@ class module_class:
             sys.exit()
             return
 
-#        if self.Module == 'freak_top':
-#            print 'adding %s %s %s'%(Name,Dir,Wid)
-#            traceback.print_stack()
 
-        if type(Name)==types.ListType:
+        if type(Name) is list:
             logs.log_error('add_sig got listName %s'%str(Name))
             return
         if (Dir=='wire')and(Name in self.nets)and(Wid==0):
@@ -126,13 +123,13 @@ class module_class:
 
         if (Wid==0):
             self.nets[Name] =  Dir,WasWid 
-        elif(type(Wid)==types.TupleType):
+        elif type(Wid) is tuple:
             self.nets[Name]=Dir,Wid
-        elif (type(Wid)==types.IntType)and(Wid>1):
+        elif (type(Wid) is int)and(Wid>1):
             self.nets[Name]=Dir,(Wid-1,0)
-        elif (type(Wid)==types.IntType)and(Wid==1):
+        elif (type(Wid)is int)and(Wid==1):
             self.nets[Name]=Dir,0
-        elif(type(Wid)==types.ListType):
+        elif(type(Wid)is list):
             if Name not in self.netParams:
                 self.netParams[Name]={}
             try:
@@ -140,7 +137,7 @@ class module_class:
                     self.netParams[Name][Prm]=Val
             except:
                 pass
-        elif (type(Wid)==types.StringType)and(Wid in Dir):
+        elif (type(Wid)is str)and(Wid in Dir):
             pass
         else:
             logs.log_err('add_sig %s (%s) got width %s'%(Name,Dir,Wid))
@@ -149,7 +146,7 @@ class module_class:
 
 
     def add_mem(self,Name,Dir,Wid,Wid2):
-        if type(Name)==types.ListType:
+        if type(Name)is list:
             for NN in Name:
                 self.nets[NN]=(Dir,('double',Wid,Wid2))
         else:
@@ -193,7 +190,7 @@ class module_class:
         Obj = self.insts[Inst]
         Obj.add_param(Prm,Val)
     def add_conn(self,Inst,Pin,Sig):
-        if (type(Sig)==types.ListType)and(len(Sig)==1):
+        if (type(Sig)is list)and(len(Sig)==1):
             Sig = Sig[0]
         Obj = self.insts[Inst]
         Sig1 = busify_x(Sig)
@@ -234,7 +231,7 @@ class module_class:
 
     def dump_new_style_header(self,Fout):
         Fout.write('%s %s'%(self.Kind,pr_expr(self.Module)))
-        if self.parameters.keys()!=[]:
+        if list(self.parameters.keys())!=[]:
             Pref=''
             Fout.write(' #( ')
             for Prm in self.parameters:
@@ -342,7 +339,7 @@ class module_class:
             Conns=Def[2]
             Str=''
             res=verilog_conns(Conns)
-            Fout.write('%s %s(%s);\n'%(Type,Name,string.join(res,',')))
+            Fout.write('%s %s(%s);\n'%(Type,Name,logs.join(res,',')))
 
         for Name in self.mems:
             (Dir,Wid1,Wid2)=self.mems[Name]
@@ -353,24 +350,24 @@ class module_class:
             List = self.modports[Name]
             res=[]
             for XX in List:
-                if type(XX)==types.TupleType:
+                if type(XX)is tuple:
                     Str = '%s %s'%(XX[0],XX[1])
                 else:
                     Str = XX
                 res.append(Str)
-            Big = string.join(res,', ')
+            Big = logs.join(res,', ')
             Fout.write('modport %s ( %s );\n'%(Name,Big))
         for Name in self.genvars:
             Fout.write('genvar %s;\n'%(Name))
         for Name in self.enums:
             List = self.enums[Name]
-            if type(List)==types.TupleType:
+            if type(List)is tuple:
                 if List[0]=='width_singles':
                     Wid = List[1]
-                    Str = string.join(List[2],', ')
+                    Str = logs.join(List[2],', ')
                     Fout.write('typedef enum logic [%s:%s] { %s } %s\n'%(Wid[0],Wid[1],Str,Name))
                 elif List[0]=='singles':
-                    Str = string.join(List[1],', ')
+                    Str = logs.join(List[1],', ')
                     Fout.write('typedef enum logic { %s } %s\n'%(Str,Name))
                 else:
                     logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
@@ -382,10 +379,10 @@ class module_class:
             else:
                 Src1 = clean_br(pr_expr(Src))
                 if len(Src1)>120:
-                    Src2 = string.split(Src1,'$$$')
-                    Src1 = string.join(Src2,'\n    ')
+                    Src2 = Src1.split('$$$')
+                    Src1 = Src2.join('\n    ')
                 else:
-                    Src1 = string.replace(Src1,'$$$','')
+                    Src1 = Src1.replace('$$$','')
                 Src2 = splitLong(Src1)
                 Fout.write('assign %s %s %s = %s;\n'%(pr_strength(Strength),pr_dly(Dly),pr_expr(Dst),Src2))
         for Inst in self.insts:
@@ -417,7 +414,7 @@ class module_class:
         Fout.write('function %s %s;\n'%(pr_wid(X[0]),Func))
         if X[1]!=[]:
             for Item in X[1]:
-                if (type(Item)==types.ListType)and(len(Item)==4):
+                if (type(Item)is list)and(len(Item)==4):
                     Fout.write('%s %s %s;\n'%(Item[3],pr_wid(Item[2]),Item[1]))
                 else:
                     logs.log_err('dump_function ldefs %s '%(str(Item)))
@@ -426,20 +423,20 @@ class module_class:
 
     def dump_task(self,Task,Fout):
         X = self.tasks[Task]
-        if type(X)==types.ListType:
+        if type(X)is list:
             Fout.write('task %s;\nbegin\n'%Task)
             Y = pr_stmt(X,'')
             Fout.write(Y)
             Fout.write('end\nendtask\n')
             return
-        if type(X)==types.TupleType:
+        if type(X)is tuple:
             if len(X)==2:
                 Body=X[0]
                 Ldefs = X[1]
                 Fout.write('task %s;\n'%Task)
                 if Ldefs:
                     for Item in Ldefs:
-                        if (type(Item)==types.TupleType)and(len(Item)==3):
+                        if (type(Item)is tuple)and(len(Item)==3):
                             Fout.write('%s %s %s;\n'%(Item[2],pr_wid(Item[1]),Item[0]))
                         else:
                             logs.log_err('dump_task ldefs %s %s'%(Item,Ldefs))
@@ -456,15 +453,15 @@ class module_class:
         if len(Initial)==0:
             return
         Statement = pr_stmt(Initial,'    ',True)
-        if type(Initial)==types.TupleType:
-            Fout.write('initial %s'%(string.lstrip(Statement)))
+        if type(Initial)is tuple:
+            Fout.write('initial %s'%(Statement.lstrip()))
         else:
             Fout.write('initial begin\n')
             Fout.write('%s'%Statement)
             Fout.write('end\n')
 
     def get_width(self,Net):
-        if type(Net)==types.StringType:
+        if type(Net)is str:
             if Net in self.nets:
                 Dir,Wid = self.nets[Net]
                 return Wid
@@ -481,7 +478,7 @@ class module_class:
             Obj = self.insts[Inst]
             for Pin in Obj.conns:
                 Sig = Obj.conns[Pin]
-                if type(Sig)==types.StringType:
+                if type(Sig)is str:
                     Sigs[Sig]=1
         Dels=[]
         for Inst in self.insts:
@@ -496,8 +493,8 @@ class module_class:
 
     def check_net_def(self,Net):
         if not Net: return
-        if type(Net)==types.IntType: return
-        if type(Net)==types.StringType:
+        if type(Net)is int: return
+        if type(Net)is str:
             if "'" in Net: return
             if Net in self.insts:
                 return
@@ -511,10 +508,10 @@ class module_class:
             if Net not in self.nets:
                 self.add_sig(Net,'wire',0)
             return
-        if type(Net)==types.TupleType:
+        if type(Net)is tuple:
             self.check_net_def(list(Net))
             return
-        if type(Net)==types.ListType:
+        if type(Net)is list:
             if Net[0]=='dotted':
                 return
             if Net[0]=='define':
@@ -526,17 +523,17 @@ class module_class:
             if Net[0]=='subbit':
                 Name = Net[1]
                 Ind = make_int(Net[2])
-                if type(Ind)==types.IntType:
+                if type(Ind)is int:
                     if Name not in self.nets:
                         self.add_sig(Name,'wire',(Ind,Ind))
                         return
                     (Dir,WW) = self.nets[Name]
-                    if (type(WW)==types.TupleType)and(len(WW)==2):
+                    if (type(WW)is tuple)and(len(WW)==2):
                         (H,L)=WW
                         H = max(H,Ind)
                         L = min(L,Ind)
                         self.nets[Name]=(Dir,(H,L))
-                    elif (type(WW)==types.TupleType)and(len(WW)==3):
+                    elif (type(WW)is tuple)and(len(WW)==3):
                         if WW[0] not in ['packed','double']:
                             logs.log_error('definition of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
                     else:
@@ -555,7 +552,7 @@ class module_class:
                     self.add_sig(Name,'wire',(Ind0,Ind1))
                     return
                 (Dir,WW) = self.nets[Name]
-                if type(WW)==types.TupleType:
+                if type(WW)is tuple:
                     if WW[0]=='double':
                         return
                     (H,L)=WW
@@ -631,12 +628,12 @@ class module_class:
                 Net = Obj.conns[Pin]
                 if not Net:
                     pass
-                elif type(Net)==types.StringType:
+                elif type(Net)is str:
                     if "'" in Net:
                         pass
                     elif Net not in Wires:
                         Wires[Net]=(0,0)
-                elif type(Net) in [types.TupleType,types.ListType]:
+                elif isinstance(Net,(tuplr,list)):
                     if Net[0] in ['subbit','subbus']:
                         Name = Net[1]
                         if Net[0]=='subbit':
@@ -676,7 +673,7 @@ class module_class:
             Type = Obj.Type
             for Pin in Obj.conns:
                 NN = Obj.conns[Pin]
-                if not ((type(NN)==types.ListType)and(NN[0]=='curly')):
+                if not ((type(NN)is list)and(NN[0]=='curly')):
                     Net = hashit(Obj.conns[Pin])
                     if Net not in netTable:
                         netTable[Net]=[]
@@ -688,19 +685,19 @@ class module_class:
     def relax_name(self,Name,Simple=True):
         if not Name:
             return Name
-        if type(Name)==types.ListType:
+        if type(Name)is list:
             if Name[0] in ['subbit','subbus']:
                 Name[1]=relax_name(Name[1],Simple)
             return Name
-        if type(Name)!=types.StringType:
+        if type(Name)is not str:
             return Name
         if Name[0]=='\\':
             Name=Name[1:]
         for Char in '/.*':
-             Name = string.replace(Name,Char,'_')
+             Name = Name.replace(Char,'_')
         if Simple and ('[' in Name):
-            Name = string.replace(Name,'[','_')
-            Name = string.replace(Name,']','_')
+            Name = Name.replace('[','_')
+            Name = Name.replace(']','_')
         return Name        
 
     def fix_conn_table(self,Net):
@@ -738,9 +735,9 @@ class module_class:
                         self.netsTable[Sigx].append((Inst,Type,Pin))
          
     def compute_int(self,Item):
-        if type(Item)==types.IntType:
+        if type(Item)is int:
             return Item
-        if type(Item)==types.StringType:
+        if type(Item)is str:
             if Item[0] in '0123456789':
                 return int(Item)
             if Item in self.parameters:
@@ -750,7 +747,7 @@ class module_class:
                 X = self.localparams[Item]
                 return self.compute_int(X)
     
-        if type(Item)==types.ListType:
+        if type(Item)is list:
             if Item[0] in ['-','+','*','/']:
                 A = self.compute_int(Item[1])
                 B = self.compute_int(Item[2])
@@ -812,7 +809,7 @@ def dump_always(Always,Fout):
     return ''
 
 OPS =  ['~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
-KEYWORDS = string.split('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default double_sub')
+KEYWORDS = ('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default double_sub').split()
 
 def support_set(Sig,Bussed=True):
     Set = support_set__(Sig,Bussed)
@@ -829,13 +826,13 @@ def support_set(Sig,Bussed=True):
 def support_set__(Sig,Bussed):
     if (Sig=='')or not Sig:             return []
     if (Sig=='$unconnected'):           return []
-    if type(Sig) in [types.IntType]:    return []
-    if type(Sig) in [types.StringType]: 
+    if type(Sig) is int:    return []
+    if type(Sig) is str: 
         if Sig[0]=='`': return []
         if Sig in OPS : return []
         if Sig in KEYWORDS : return []
         return [Sig]
-    if type(Sig) in [types.ListType,types.TupleType]:
+    if isinstance(Sig,(tuple,list)):
         if len(Sig)==1:
             return support_set__(Sig[0],Bussed)
         if Sig[0] in ['const','bin','hex','dig','taskcall']:
@@ -897,7 +894,7 @@ def support_set__(Sig,Bussed):
 
 
 def hasit(Net):
-    if type(Net)==types.ListType:
+    if type(Net)is list:
         return tuple(Net)
     return Net
 
@@ -945,11 +942,11 @@ class instance_class:
             res=verilog_conns(self.conns)
             res.sort()
 
-        try1 = string.join(res,', ')
+        try1 = logs.join(res,', ')
         if (len(try1)<80):
             Fout.write('%s);\n'%(try1))
         else:
-            try2 = string.join(res,'\n%s,'%Pref)
+            try2 = logs.join(res,'\n%s,'%Pref)
             Fout.write('%s);\n'%(try2))
 
 
@@ -970,7 +967,7 @@ def pr_inst_params(Dir):
             V = str(Dir[i])
             i+=1
             res.append(V)
-        return '#(%s)'%(string.join(res,', '))
+        return '#(%s)'%(logs.join(res,', '))
     res=[]
     for Prm in Dir.keys():
         if Prm != 'inst_width':
@@ -978,32 +975,32 @@ def pr_inst_params(Dir):
             X = '.%s(%s)'%(pr_expr(Prm),pr_expr(Val))
             res.append(X)
     if res==[]: return ''
-    return '#(%s)'%(string.join(res,', '))
+    return '#(%s)'%(logs.join(res,', '))
 
 def pr_timing(List):
-    if type(List)==types.ListType:
+    if type(List)is list:
         if List[0]=='list':
             res = map(pr_expr,List[1:])
             res = map(str,res)
-            return string.join(res,' or ')
+            return logs.join(res,' or ')
         if len(List)==1:
             return pr_timing(List[0])
     return str(pr_expr(List))
 
 def pr_stmt(List,Pref='',Begin=False):
     if List==None: return '%s;'%Pref
-    if type(List)==types.TupleType:
+    if type(List)is tuple:
         return pr_stmt(list(List),Pref,Begin)
-    if (type(List)==types.IntType):
+    if (type(List)is int):
         return str(List)
     if (List==[]):
         return 'begin /* empty */ end '
-    if (type(List)==types.ListType)and(len(List)==1):
+    if (type(List)is list)and(len(List)==1):
         return pr_stmt(List[0],Pref,Begin)
-    if (type(List)==types.ListType)and(len(List)>2)and(List[0]=='list')and(List[1]=='list'):
+    if (type(List)is list)and(len(List)>2)and(List[0]=='list')and(List[1]=='list'):
         logs.log_warning('ilia double list def')
         return pr_stmt(List[2],Pref,Begin)
-    if (type(List)==types.ListType)and(List[0]=='list'):
+    if (type(List)is list)and(List[0]=='list'):
         if len(List)==2:
             return pr_stmt(List[1],Pref,Begin)
         if Begin:
@@ -1019,7 +1016,7 @@ def pr_stmt(List,Pref='',Begin=False):
             return Res
         else:
             return Res+'%send\n'%Pref
-    elif  type(List)==types.ListType:
+    elif  type(List)is list:
         if List[0]=='comment':
             res = '%s//'%Pref
             for II in List[1:]:
@@ -1074,7 +1071,7 @@ def pr_stmt(List,Pref='',Begin=False):
                 return '<>fls<><>tooshort'
             elif List[3][0] in ['ifelse','if']:
                 No = pr_stmt(List[3],Pref,True)
-                No = string.lstrip(No)
+                No = No.lstrip()
                 return '%sif(%s) begin\n%s%send else %s'%(Pref,Cond,Yes,Pref,No)
             else:
                 No = pr_stmt(List[3],Pref+'    ',True)
@@ -1087,10 +1084,10 @@ def pr_stmt(List,Pref='',Begin=False):
             return '%sif(%s) begin\n%s%send\n'%(Pref,Cond,Yes,Pref)
         if List[0] in ['functioncall','funccall']:
             res = map(pr_expr,List[2])
-            res2 = string.join(res,',')
+            res2 = logs.join(res,',')
             return '%s%s(%s);\n'%(Pref,List[1],res2)
         if List[0]in ['unique_case','case','casez','casex']:
-            Case = string.replace(List[0],'unique_','unique ')
+            Case = List[0].replace('unique_','unique ')
             Cond = clean_br(pr_expr(List[1]))
             Str = '%s%s (%s)\n'%(Pref,Case,Cond)
             LLL = List[2]
@@ -1099,12 +1096,12 @@ def pr_stmt(List,Pref='',Begin=False):
             for Item in LLL:
                 if len(Item)==2:
                     Switch,Stmt=Item
-                    if (type(Switch)==types.ListType)and(len(Switch)==1):
+                    if (type(Switch)is list)and(len(Switch)==1):
                         Str += '%s%s: '%(Pref+'    ',pr_expr(Switch[0]))
                     else:
                         Str += '%s%s: '%(Pref+'    ',pr_expr(Switch))
                     X = pr_stmt(Stmt,Pref+'    ')
-                    X = string.lstrip(X)
+                    X = X.lstrip()
                     if (X==''): X = ';'
                     Str += X
                 elif (len(Item)==4)and(Item[0]=='default'):
@@ -1131,7 +1128,12 @@ def pr_stmt(List,Pref='',Begin=False):
             return Str
         if List[0]=='taskcall':
             if List[1]=='break': return ''
-            Str = '%s%s;'%(Pref,List[1])
+            if List[2]==[]:
+                Str = '%s%s;'%(Pref,List[1])
+            else:
+                LL = list(map(pr_expr,List[2]))
+                Pars = ','.join(LL)
+                Str = '%s%s(%s);\n'%(Pref,List[1],Pars)
             return Str
         if List[0]=='disable':
             Str = '%sdisable %s;\n'%(Pref,List[1])
@@ -1151,11 +1153,11 @@ def pr_stmt(List,Pref='',Begin=False):
             return Str
         if List[0]=='instance':
             Params = List[3]
-            if type(Params)==types.ListType:
+            if type(Params)is list:
                 PP = []
                 for (A,B) in Params:
                     PP.append('.%s(%s)'%(pr_expr(A),pr_expr(B)))
-                Prms = '#(%s)'%string.join(PP,',')                    
+                Prms = '#(%s)'%logs.join(PP,',')                    
             else:
                 Prms = pr_inst_params(List[3])
             Str0 = '%s %s %s('%(pr_expr(List[1]),Prms,pr_expr(List[2]))
@@ -1172,11 +1174,11 @@ def pr_stmt(List,Pref='',Begin=False):
             else:
                 res=verilog_conns(Conns)
 
-            try1 = string.join(res,', ')
+            try1 = logs.join(res,', ')
             if (len(try1)<80):
                 Str0 += '%s);\n'%(try1)
             else:
-                try2 = string.join(res,'\n%s,'%Pref)
+                try2 = logs.join(res,'\n%s,'%Pref)
                 Str0 += '%s);\n'%(try2)
 
             return Str0
@@ -1208,7 +1210,7 @@ def pr_stmt(List,Pref='',Begin=False):
                 return 'assign %s = %s;\n'%(Dst,Src)
 
         if List[0]=='reg':
-            if (type(List[1])==types.StringType):
+            if (type(List[1])is str):
                 if List[1][0]=='width':
                     Hi = pr_expr(List[1][1])
                     Lo = pr_expr(List[1][2])
@@ -1218,13 +1220,13 @@ def pr_stmt(List,Pref='',Begin=False):
                 return 'reg %s;'%List[1]
                 
     if List in ['ILIA_FALSE','ILIA_TRUE']: return List                
-    if type(List)==types.StringType:
+    if type(List)is str:
         if List=='empty_begin_end': return ''
 
-    if (type(List)==types.ListType)and(len(List)==1):
+    if (type(List)is list)and(len(List)==1):
         return pr_stmt(List[0])
 
-    if type(List)==types.TupleType:
+    if type(List)is tuple:
         return pr_stmt(list(List))
     logs.log_err('untreated for prnt stmt %s %s'%(Pref,List))
     traceback.print_stack(None,None,logs.Flog)
@@ -1248,7 +1250,7 @@ def pr_assign_list(List):
     for Item in List:
         Res = pr_assign_list(Item)
         res.append(Res)
-    return string.join(res,', ')
+    return logs.join(res,', ')
 
 def clean_br(Txt):
     Txt = str(Txt)
@@ -1269,7 +1271,7 @@ def pr_dly(Dly):
     res=[]
     for (A,B) in Dly:
         res.append(pr_expr(B))
-    return '#(%s)'%(string.join(res,', '))
+    return '#(%s)'%(logs.join(res,', '))
 def pr_strength(Strength):
     if Strength=='':
         return ''
@@ -1288,7 +1290,7 @@ def pr_wid(Wid):
         return 'wid is none error!!'
     if Wid==0:
         return ''
-    if type(Wid)==types.IntType:
+    if type(Wid)is int:
         return '[%s:0]'%(pr_expr(Wid))
     if (len(Wid)==3)and(Wid[0]=='double'):
         return '%s%s'%(pr_wid(Wid[1]),pr_wid(Wid[2]))
@@ -1307,13 +1309,13 @@ def pr_replace(What):
         return What+' '
     return What
 def pr_expr(What):
-    if type(What)==types.IntType:
+    if type(What)is int:
         return str(What)
-    if type(What)==types.LongType:
+    if type(What) is int:
         return str(What)
-    if type(What)==types.FloatType:
+    if type(What) is float:
         return str(What)
-    if type(What)==types.StringType:
+    if type(What)is str:
         return pr_replace(What)
     if not What:
         return ''
@@ -1324,7 +1326,7 @@ def pr_expr(What):
     if What[0]=='dotted':
         LL = map(pr_expr,What[1])
         LL = map(str,LL)
-        return string.join(LL,'.')
+        return LL.join('.')
     if What[0]=='edge':
         return '%s %s'%(What[1],pr_expr(What[2]))
     if What[0]=='subbit':
@@ -1374,7 +1376,7 @@ def pr_expr(What):
         for X in What[1:]:
             Y = str(pr_expr(X))
             res.append(Y)
-        res1 = '(%s)'%string.join(res,' %s '%What[0])
+        res1 = '(%s)'%logs.join(res,' %s '%What[0])
         return res1
 
 
@@ -1403,12 +1405,12 @@ def pr_expr(What):
             return pr_expr(['subbus',Bus,(H,L)])
         if single_bits(What[1:]):
             Wid,Val=single_bits(What[1:])
-            if type(Val)==types.StringType:
+            if type(Val)is str:
                 return pr_expr(['const',Wid,'b%s'%Val])
             else:
                 return pr_expr(['const',Wid,'h%x'%Val])
         res = map(pr_expr,What[1:])
-        return '{%s}'%(string.join(res,', '))    
+        return '{%s}'%(logs.join(res,', '))    
     if What[0]=='define':
         if len(What)==2:
             return What[1]
@@ -1427,7 +1429,7 @@ def pr_expr(What):
         Str = 'return  %s'%(pr_expr(What[1]))
         return Str
 
-    if (type(What)==types.ListType):
+    if (type(What)is list):
         if simply_computable(What):
             X,_ = simply_computable(What)
             return str(X)
@@ -1435,7 +1437,7 @@ def pr_expr(What):
         for X in What:
             Y = pr_expr(X)
             LL.append(Y)
-        return string.join(LL,',')
+        return logs.join(LL,',')
 
     logs.pStack('pr_expr %s'%(str(What)))
     return str('error '+str(What))
@@ -1444,14 +1446,14 @@ def pr_expr(What):
 def splitLong(res1):
     if len(res1)<120: return res1
     if '+' in res1:
-        ww = string.split(res1,'+')
-        res2 = string.join(ww,'\n    +')
+        ww = res1.split('+')
+        res2 = logs.join(ww,'\n    +')
         return res2
 
     return res1
 
 def simply_computable(What):
-    if type(What) in [types.IntType,types.FloatType]:
+    if isinstance(What,(float,int)):
         return What,'aa'
     if (What[0] in ['-','+','*','/'])and(len(What)==3):
         if  simply_computable(What[1]) and simply_computable(What[2]):
@@ -1461,13 +1463,13 @@ def simply_computable(What):
     return False        
 
 def one_bus(List):
-    if type(List)!=types.ListType:
+    if type(List)is not list:
         return False
     Run = -1
     Bus = False
     H=-1
     for Item in List:
-        if type(Item)!=types.ListType:
+        if type(Item)is not list:
             return False
         if Item[0]!='subbit':
             return False
@@ -1489,7 +1491,7 @@ def one_bus(List):
     return Bus,H,Run
 
 def single_bits(List):
-    if type(List)!=types.ListType:
+    if type(List)is not list:
         return False
     if len(List)==0:
         return False
@@ -1498,7 +1500,7 @@ def single_bits(List):
     Bus = False
     H=-1
     for Item in List:
-        if type(Item)!=types.ListType:
+        if type(Item)is not list:
             return False
         if (Item[0]=='const')and(Item[1] in ['1',1]):
             Bits.append(compute1(Item[2]))
@@ -1508,22 +1510,22 @@ def single_bits(List):
             Bits.append(compute1(Item[2]))
         else:
             return False
-    Bits1 = string.join(map(str,Bits),'')
+    Bits1 = logs.join(map(str,Bits),'')
     Len1 = len(Bits1)
     if 'x' in Bits1: return Len1,Bits1
     return Len1,int(Bits1,2)
 
 def compute1(Item):
-    if type(Item)==types.IntType:
+    if type(Item)is int:
         return Item
-    if type(Item)==types.StringType:
+    if type(Item)is str:
         if Item[0] in '0123456789':
             return int(Item)
         if Item in ['b0','b1']:
             return int(Item[1])
         if Item=='x': return 'x'
 
-    if type(Item)==types.ListType:
+    if type(Item)is list:
         if Item[0] in ['-','+','*','/']:
             A = compute1(Item[1])
             B = compute1(Item[2])
@@ -1542,26 +1544,26 @@ def compute1(Item):
 
 
 def clean_inst(Inst):
-    if (type(Inst)!=types.StringType):
+    if (type(Inst) is not str):
         return Inst 
-    Inst = string.replace(Inst,'\\','')
-    Inst = string.replace(Inst,'[','_')
-    Inst = string.replace(Inst,']','_')
+    Inst = Inst.replace('\\','')
+    Inst = Inst.replace('[','_')
+    Inst = Inst.replace(']','_')
     return Inst    
 
 def busify_x(Sig):
-    if (type(Sig)==types.StringType)and('[' in Sig)and(Sig[-1]==']')and(Sig[0]!='\\'):
+    if (type(Sig)is str)and('[' in Sig)and(Sig[-1]==']')and(Sig[0]!='\\'):
         ind = Sig.index('[')
         Net = Sig[:ind]
         Inds = Sig[ind+1:-1]
         if ':' in Inds:
-            ww = string.split(Inds,':')
+            ww = Inds.split(':')
             return ['subbus',Net,ww[0],ww[1]]
         return ['subbit',Net,Inds]
     return Sig
 
 def relax_inst_name(Name):
-    if type(Name)in[types.TupleType,types.ListType]:
+    if isinstance(Name,(list,tuple)):
         if Name[0] in ['subbit']:
             return '%s_%s_'%(Name[1],Name[2])        
     return relax_name(Name)
@@ -1569,36 +1571,36 @@ def relax_inst_name(Name):
 def relax_name(Name,Simple=True):
     if not Name:
         return Name
-    if type(Name) in [types.ListType,types.TupleType]:
+    if isinstance(Name,(list,tuple)):
         if Name[0] in ['subbit','subbus']:
             Name[1]=relax_name(Name[1],Simple)
         return Name
-    if type(Name)!=types.StringType:
+    if type(Name)is not str:
         return Name
     if Name[0]=='\\':
         Name=Name[1:]
-    Name = string.replace(Name,'/','_')
-    Name = string.replace(Name,'.','_')
+    Name = Name.replace('/','_')
+    Name = Name.replace('.','_')
     if Simple and ('[' in Name):
-        Name = string.replace(Name,'[','_')
-        Name = string.replace(Name,']','_')
+        Name = Name.replace('[','_')
+        Name = Name.replace(']','_')
     return Name        
 
 def hashit(End):    
-    if type(End)==types.ListType:
+    if type(End)is list:
         return tuple(End)
     else:
         return End 
 
 
 def is_double_def(Wid):
-    if type(Wid)not in [types.TupleType,types.ListType]:
+    if not isinstance(Wid,(list,tuple)):
         return False
     if (len(Wid)==3)and(Wid[0] in ['packed','double']):
         return True
     if len(Wid)!=2:
         logs.log_err('bad width definition, ilia!  %s '%(str(Wid)))
-        traceback.print_stack(None,None,logs.Flog)
+        logs.pStack()
         return False
     return False        
     
@@ -1609,9 +1611,9 @@ def make_int(Str):
         return Str
 
 def verilog_conns(Conns):
-    if type(Conns)==types.ListType:
+    if type(Conns) is list:
         return verilog_conns_list(Conns)
-    elif type(Conns)==types.DictType:
+    elif type(Conns) is dict:
         return verilog_conns_dict(Conns)
 
 def verilog_conns_list(Conns):
@@ -1681,7 +1683,7 @@ def is_external_dir(Dir):
 
 
 def myExtras(Token):
-    return Token in string.split('$high $signed empty_begin_end unique_case')
+    return Token in ('$high $signed empty_begin_end unique_case').split()
 
 def pr_net_def(Wid,Dir,Name):
     if Wid==Dir:

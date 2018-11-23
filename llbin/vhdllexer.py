@@ -3,6 +3,7 @@
 import string,sys,os,types
 import cProfile
 import traceback
+import logs
 Style = 'old'
 def main():
     global Style
@@ -18,7 +19,7 @@ class DbClass:
         self.state='idle'
         self.Token=''
         self.Queue=[]
-        self.Types=string.split('positive string std_logic_vector std_logic integer line bit_vector boolean natural')
+        self.Types=('positive string std_logic_vector std_logic integer line bit_vector boolean natural').split()
 
 
 def run_lexer(Fname,Ofname):
@@ -27,8 +28,8 @@ def run_lexer(Fname,Ofname):
     try:
         File = open(Fname)
     except:
-        print 'lexer failed to open %s'%Fname
-        print traceback.print_stack()
+        print('lexer failed to open %s'%Fname)
+        logs.pStack()
         return
     Db.Ofile = open(Ofname,'w')
     checkTable()
@@ -39,7 +40,7 @@ def run_lexer(Fname,Ofname):
 def checkTable():
     for X in Table:
         if len(X)!=6:
-            print 'ERROR! ilia in table "%s"'%(str(X))
+            logs.log_error('ilia in table "%s"'%(str(X)))
 
 def work(File):
     LineNum=0
@@ -53,7 +54,6 @@ def work(File):
                 line=line[:-2]+chr(10)
             elif ord(line[-1])!=10:
                 line = line+ chr(10)
-#            print 'line',line,
             work_line(line,LineNum)
 
 def work_line(line,LineNum):
@@ -70,24 +70,23 @@ def work_line(line,LineNum):
         elif (action=='add'):
             Db.Token=Db.Token+line[i]
         elif (action!='none'):
-            print Db.state,action,kind,'error line=%d pos=%d chr="%s" %s'%(LineNum,i,line[i],line[:-1])
+            logs.log_error('%s %s %s %s'%( Db.state,action,kind,'error line=%d pos=%d chr="%s" %s'%(LineNum,i,line[i],line[:-1])))
             sys.exit()
 def push_token(Token,kind,LineNum,LinePos):
-#    print 'push_token    %s %s %s %s\n'%(Token,kind,LineNum,LinePos)
-    if (kind=='token')and(string.lower(Token) in ReservedWords):
-        kind=string.capitalize(Token)
-        Token=string.capitalize(Token)
+    if (kind=='token')and(Token.lower() in ReservedWords):
+        kind=Token.capitalize()
+        Token=Token.capitalize()
     elif (kind=='define')and(Token in ReservedWords):
         kind='backtick_'+Token[1:]
     elif (kind=='token')and('.' in Token):
         kind = 'dotted'
 
-    if string.lower(Token) in Db.Types:
+    if Token.lower() in Db.Types:
         kind = 'Types'
     if len(Db.Queue)>0:
         PrevT,PrevK,_,_ = Db.Queue[-1]
         if (PrevT=='Type'):
-            Db.Types.append(string.lower(Token))
+            Db.Types.append(Token.lower())
 
     Db.Queue.append((Token,kind,LineNum,LinePos))
     work_out_queue()
@@ -152,7 +151,7 @@ def doublesName(Txt):
     if Txt in DoubleNames:
         return DoubleNames[Txt]
     else:
-        print 'ilia! doubles names missing %s'%Txt
+        logs.log_error('ilia! doubles names missing %s'%Txt)
         return Txt
 
 
@@ -160,13 +159,11 @@ def stepit(Pos,Char,Char1,State):
     rule=0
     for (St,Ch0,Ch1,Next,Action,Kind) in Table:
         if (St==State):
-#            print 'tryrule%d ch=%s ch1=%s in0=%d in1=%d st=%s ch0=%s ch1=%s next=%s act=%s kind=%s'%(rule,Char,Char1,(Char in Ch0),(Char1 in Ch1),State,Ch0,Ch1,Next,Action,Kind)
             rule +=1
             if (Ch0=='')or(Char in Ch0):
                 if (Ch1=='')or(Char1 in Ch1):
                     return  Next,Action,Kind
-    print 'lexer: no rule fits st=%s ch=%s ch1=%s'%(State,Char,Char1)
-#    sys.exit()
+    logs.log_error('lexer: no rule fits st=%s ch=%s ch1=%s'%(State,Char,Char1))
     return 'idle','error',0
     
 LowLetters = 'qwertyuiopasdfghjklzxcvbnm'
@@ -183,7 +180,7 @@ Spaces = '\t '
 AnyChar = Letters+Digits+Spaces+'_'+Singles+Doubles+"',\\"
 
 LegalDoublesStr = '** -> == != <= >= => =< && ||'
-LegalDoubles = string.split(LegalDoublesStr)
+LegalDoubles = LegalDoublesStr.split()
 
 #    ,('idle','(','*',               'pragma','add',0)
 #    ,('pragma','*',' ',             'idle','push','pragma_start')
@@ -311,7 +308,7 @@ downto to
 srl
 '''
 
-ReservedWords = string.split(string.lower(ReservedWordsStr))
+ReservedWords = (ReservedWordsStr.lower()).split()
 
 
 

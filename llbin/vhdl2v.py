@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/local/bin/python3
 
 TODO = '''
 1. make regs
@@ -10,13 +10,13 @@ TODO = '''
 import os,sys,string,types
 import pickle
 import traceback
-NewName = os.path.expanduser('~')
-sys.path.append('%s/verification_libs'%NewName)
+#NewName = os.path.expanduser('~')
+#sys.path.append('%s/verification_libs'%NewName)
 
 import logs 
-import moduleBuilder as mod
-import helpers
-import matches as mtc
+#import moduleBuilder as mod
+#import helpers
+#import matches as mtc
 import db1
 import reworks
 
@@ -36,54 +36,33 @@ import reworkMyLex
 import vhdllexer
 RunDir = '.'
 def main():
+    Fname = ''
     if len(sys.argv)>1:
         Fname = sys.argv[1]
         cleanVhdl.run(Fname)
         vhdllexer.run_lexer('cleaned.vhd','lex.out')
         reworkMyLex.run('lex.out','lex2.out')
         vyaccer2.run_yacc(False,'lex2.out','.',Fname)
-
+    if Fname=='':
+        logs.log_error('fname not given as parameter')
+        return
     info('starting vhdl2v by IliaG 4.sep.2018 on %s'%Fname)
     dbscan = db1.load_parsed(RunDir)
     logs.log_info('TELL dbscan arch=%d ent=%d pckg=%d scn=%d'%(len(dbscan.Architectures.keys()), len(dbscan.Entities.keys()), len(dbscan.Packages.keys()), len(dbscan.Scanned)))
 
     reworks.run(dbscan)
     Fout = open('modules.v','w')
+    for Pack in dbscan.Packages:
+        Mod = dbscan.Packages[Pack]
+        Mod.dump_verilog(Fout)
+        Mod.dump()
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
         Mod.dump_verilog(Fout)
         Mod.dump()
     Fout.close()
 
-    sys.exit()
 
-    File = open('db0.pickle')
-    Adb = pickle.load(File)
-    reportAdb(Adb,'fff0')
-
-    print 'step0'
-    cleanComas(Adb)
-    reportAdb(Adb,'fff1')
-    print 'step1'
-    rounds0(Adb)
-    reportAdb(Adb,'fff2')
-    print 'step2'
-    rounds1(Adb)
-    reportAdb(Adb,'fff3')
-    print 'step3'
-
-    dones = 1
-    while dones>0:
-        dones = removeUnused(Adb)
-    print 'scan db'
-    scanStuff_new(Adb)
-    reportScanned()
-    print 'turn to verilog'
-    makeVerilog(Adb)
-    print 'dumps and saves'
-    mod.dumpVerilog()
-    reportAdb(Adb,'fff4')
-    savePackages()
 
 def reportScanned(Fname='scanned.log'):
     Fout = open(Fname,'w')
@@ -379,7 +358,6 @@ def createSvPackage(Package,Item,Adb):
     if Vars:
         Name = Vars[0]
         Val  = Vars[2]
-        print '>>>>>>constanta',Name,Vars[1],Val
         return
 
     Vars = matches(Item,'subtype ? ?')
@@ -452,7 +430,7 @@ def getList_new(Item,Adb):
     TRACE.pop(-1)
     return Res
 
-CHECKGOODS = string.split('enumlit generic_map if signal_list else case wait input output port_map std_logic_vector integer unsigned port boolean')
+CHECKGOODS = ('enumlit generic_map if signal_list else case wait input output port_map std_logic_vector integer unsigned port boolean').split()
 def checkList(Res):
     if (type(Res)==types.TupleType):
         if len(Res)==4:
@@ -1191,7 +1169,6 @@ def getVarAsgn(List,Adb):
     if Vars:
         Item = Vars[0]
         Expr = getExpr(Item,Adb)
-        print 'getVarAsgn',Item,Expr
         return Expr
     logs.log_error('getVarAsgn failed on "%s"'%(str(List)))
     return 0
@@ -1544,7 +1521,6 @@ def treatSignals(L1,Module,Adb):
             Name = Head[1]
             Params = Head[2]
             Wid = Head[3]
-            print 'function     ',Name,Wid,Params
             mod.add_function(Name,Wid,Params,Body)
 
         else:
@@ -1580,7 +1556,7 @@ def addWire(Net,Wid):
 
    
 def justify(List,Seq):
-    Lseq = string.split(Seq)
+    Lseq = Seq.split()
     logs.log_info('start justify %d  %d %s %s'%(len(List),len(Lseq),Seq,List))
     if len(List)!=len(Lseq): 
         logs.log_info('justify %d<>%d %s %s'%(len(List),len(Lseq),Seq,List))
@@ -1597,12 +1573,12 @@ def justify(List,Seq):
             logs.log_info('mismatch (1) pos=%d look=%s act=%s'%(ind,Iseq,List[ind][0]))
             return 
     logs.log_info('matching %s ok'%Seq) 
-KNOWNFUNCTIONS = string.split('ext sxt resize conv_std_logic_vector conv_integer unsigned to_unsigned to_integer signed')
+KNOWNFUNCTIONS = ('ext sxt resize conv_std_logic_vector conv_integer unsigned to_unsigned to_integer signed').split()
 MGROUPS={}
-MGROUPS['dir'] = string.split('IN OUT INOUT BUFFER')
-MGROUPS['wire'] = string.split('unsigned positive std_logic std_logic_vector')
+MGROUPS['dir'] = ('IN OUT INOUT BUFFER').split()
+MGROUPS['wire'] = ('unsigned positive std_logic std_logic_vector').split()
 def matches(List,Seq,Where=''):
-    Lseq = string.split(Seq)
+    Lseq = Seq.split()
     if len(List)!=len(Lseq): return False
     Vars=[]
     for ind,Iseq in enumerate(Lseq):
@@ -1643,15 +1619,13 @@ def cntr():
 def getExpr(Root,Adb,Father='none'):
     TRACE.append(('expr',Root))
     DD = cntr()
-    print '>>>enter',DD,Root
     Res = getExpr__(Root,Adb,Father)
-    print '         %d            >>>exit'%DD,Res
     TRACE.pop(-1)
     return Res
 
 
-BIOPS = string.split("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star ** AND OR DOWNTO GESym EQSym NESym /= ")
-VBIOPS = string.split('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * ** & | : >= == != !=')
+BIOPS = ("=> MOD Slash Ampersand <= GTSym LTSym SRL NOR NAND XOR XNOR | - + * Star ** AND OR DOWNTO GESym EQSym NESym /= ").split()
+VBIOPS = ('=> % / concat <= > < << ~| ~& ^ ~^ | - + * * ** & | : >= == != !=').split()
 VRELATION = {'EQSym':'==','GTSym':'>','LTSym':'<'}
     
 def getExpr__(Root,Adb,Father):
@@ -1932,7 +1906,6 @@ def getExpr__(Root,Adb,Father):
     if (len(Root)==2)and(type(Root)==types.ListType)and(Root[0] in Adb)and(Root[1] in Adb):
         Expr1 = getExpr(Root[0],Adb)
         Expr2 =  getExpr(Adb[Root[1]],Adb)
-        print 'root2',Expr1,Expr2
         if Expr1[0]=='subbit':
             return ('double_sub',Expr1[1],Expr1[2],Expr2)
         return tuple(Expr2)

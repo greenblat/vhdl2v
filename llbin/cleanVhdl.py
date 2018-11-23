@@ -15,7 +15,7 @@ def run(Fname):
     Fout = open('cleaned.vhd','w')
     state='idle'
     for line in lines:
-        wrds = string.split(line)
+        wrds = line.split()
         if wrds==[]:
             fwrite(Fout,line)
         elif state=='idle':

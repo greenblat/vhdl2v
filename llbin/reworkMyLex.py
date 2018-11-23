@@ -41,13 +41,13 @@ def keepWindow(Line,Fout,Flush=False):
     doWindow()
 
 def doWindow():
-    wrds0 =  string.split(WINDOW[0])
-    wrds1 =  string.split(WINDOW[1])
-    if len(WINDOW)>=3: wrds2 =  string.split(WINDOW[2])
-    if len(WINDOW)>3: wrds3 =  string.split(WINDOW[3])
+    wrds0 =  (WINDOW[0]).split()
+    wrds1 =  (WINDOW[1]).split()
+    if len(WINDOW)>=3: wrds2 =  (WINDOW[2]).split()
+    if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
     if len(WINDOW)>=4:
         if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
-            if wrds1[0] in string.split('ENTITY ARCHITECTURE PROCESS CASE GENERATE PACKAGE COMPONENT'):
+            if wrds1[0] in ('ENTITY ARCHITECTURE PROCESS CASE GENERATE PACKAGE COMPONENT').split():
                 WINDOW.pop(2)
                 if wrds1[0]=='ARCHITECTURE':
                     WINDOW.pop(1)
@@ -56,12 +56,12 @@ def doWindow():
         elif (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
             WINDOW.pop(2)
             WINDOW[2] = '%s Identifier %s %s\n'%(wrds3[0],wrds3[2],wrds3[3])
-    wrds0 =  string.split(WINDOW[0])
-    wrds1 =  string.split(WINDOW[1])
+    wrds0 =  (WINDOW[0]).split()
+    wrds1 =  (WINDOW[1]).split()
     wrds2 = []
     wrds3 = []
-    if len(WINDOW)>=3: wrds2 =  string.split(WINDOW[2])
-    if len(WINDOW)>3: wrds3 =  string.split(WINDOW[3])
+    if len(WINDOW)>=3: wrds2 =  (WINDOW[2]).split()
+    if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
 
     if len(WINDOW)>=3:
         if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['PROCESS','CASE','IF','RECORD','COMPONENT','LOOP','GENERATE']):
@@ -70,26 +70,26 @@ def doWindow():
             WINDOW.pop(2)
         elif (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[1]=='Identifier'):
                 WINDOW.pop(1)
-    wrds0 =  string.split(WINDOW[0])
-    wrds1 =  string.split(WINDOW[1])
+    wrds0 =  (WINDOW[0]).split()
+    wrds1 =  (WINDOW[1]).split()
     wrds2 = []
     wrds3 = []
-    if len(WINDOW)>=3: wrds2 =  string.split(WINDOW[2])
-    if len(WINDOW)>3: wrds3 =  string.split(WINDOW[3])
+    if len(WINDOW)>=3: wrds2 =  (WINDOW[2]).split()
+    if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
     if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
             WINDOW.pop(1)
 
 
 
 
-LIST0 = string.split('''
-    Library Use Package End Return Downto Is Function Body Entity Port In Inout Out
+LIST0 = ('''
+    Library Use Package End Return Downto Is Function Procedure Body Entity Port In Inout Out
     Architecture Of Signal  Process If Then Else Variable Range Wait  Until
     To And  Elsif Not Or Xor Xnor Nor Nand Case When Others Component Map For Loop Exit Srl
     Type Assert Report Generic Buffer Array Generate Alias
     Record Subtype Configuration
     Attribute
-''')
+''').split()
 LIST1 = {'token':'Identifier','dotted':'DOTTED'
     ,'number':'DecimalInt'
     ,'Types':'Identifier'
@@ -134,7 +134,7 @@ LIST2 = {
 }
 
 def modifyLine(line):
-    wrds = string.split(line)
+    wrds = (line).split()
     if (len(wrds)>4)and(wrds[0][0]=='"'):
         New = wrds[0]
         ind=1
@@ -150,7 +150,7 @@ def modifyLine(line):
             modified = 'SEVERITY SEVERITY %s %s\n'%(wrds[2],wrds[3])
             return modified
         if Key in LIST0:
-            New = string.upper(Key)
+            New = Key.upper()
             modified = '%s %s %s %s\n'%(New,New,wrds[2],wrds[3])
             return modified
         if wrds[1] in LIST1:
@@ -158,7 +158,7 @@ def modifyLine(line):
             if (New=='BitStringLit')and(wrds[0][1] in '+*/'):
                 New = 'Identifier'
             if New=='Identifier':
-                Token = string.lower(wrds[0])
+                Token = wrds[0].lower()
             else:
                 Token = wrds[0]
             modified = '%s %s %s %s\n'%(Token,New,wrds[2],wrds[3])

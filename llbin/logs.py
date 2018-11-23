@@ -28,7 +28,7 @@ def log_time(Why):
     log_info('info: %s                                 time=%s'%(Why,time.ctime()))
 
 def log_fatal(Text):
-    print 'FATAL error!! %s'%(Text)
+    print('FATAL error!! %s'%(Text))
     log_ending('from fatal')
     sys.exit()
 
@@ -42,7 +42,7 @@ def log_err(Text,Trace=False):
         return
     printed_already[Text]=1
     Str = '%d: ERROR!! in %s: %s\n'%(Errors,MODULE[0],Text)
-    print Str,
+    print(Str)
     if Server: srvString += Str
     Flog.write(Str)
     Errors +=1  
@@ -57,7 +57,7 @@ def log_warning(Text):
     if (not Flog):
         Flog=open('pymon.file','w')
     Str = '%d: warning in %s: %s\n'%(Warnings,MODULE[0],Text)
-    print Str,
+    print(Str)
     if Server: srvString += Str
     Flog.write(Str)
     printed_already[Text]=1
@@ -73,7 +73,7 @@ def log_info(Text,Print=True):
         Flog=open('pymon.file','w')
     Str = 'info: %s\n'%(Text)
     if Print:            
-        print Str,
+        print(Str)
     if Server: srvString += Str
     Flog.write(Str)
 
@@ -84,13 +84,13 @@ def log_info2(Text,Print=False):
         Flog2=open('2.pymon.file','w')
     Str = 'info: %s\n'%(Text)
     if Print:            
-        print Str,
+        print(Str)
     if Server: srvString += Str
     Flog2.write(Str)
 
 def log_dbg(Text):
     if (print_debug_messages):
-        print 'dbg: ',Text
+        print('dbg: %s'%Text)
 
 def log_ending(Who):
     log_time('%s.py has %d errors and %d warnings logged\n\n'%(Who,Errors,Warnings))
@@ -102,9 +102,9 @@ def log_ending(Who):
 
 params={}
 def get_param(Param,Default):
-    print '>>>>',Param,params
+    print('>>>> %s %s'%(Param,params))
     if Param in params:
-        print '>>>>>',params[Param]
+        print('>>>>> %s'%params[Param])
         return params[Param][0]
     return Default
 
@@ -140,7 +140,7 @@ def parse_args():
 def record_directory(Fname,SearchDirs):
     wrds = string.split(Fname,'/')
     wrds = wrds[:-1]
-    Dir = string.join(wrds,'/')
+    Dir = '/'.join(wrds)
     if (len(Dir)==0):
         Dir = '.'
     if (Dir not in SearchDirs):
@@ -197,7 +197,7 @@ def gatherBraces(Lex,St='(',En=')'):
             ind +=1 
         elif Tok[0]==En:
             if Stack==[]:
-                print 'woi',ind,Tok
+                print('woi %s %s'%(ind,Tok))
                 return Lex 
             Start = Stack.pop(-1)
             TT = Temp.pop(-1)
@@ -212,3 +212,5 @@ def pStack(Txt=''):
     traceback.print_stack(None,None,Flog)
     Flog.write('\n\n\n')
 
+def join(List,What):
+    return What.join(List)
