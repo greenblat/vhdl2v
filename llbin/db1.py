@@ -275,6 +275,12 @@ def get_list__(Item):
         L1 = get_list(db.db[Vars[1]])
         return L0+L1
 
+    Vars = matches.matches(Item,'!...discrete_range.. Comma !discrete_range')
+    if Vars:
+        L0 = get_list(db.db[Vars[0]])
+        L1 = get_list(db.db[Vars[1]])
+        return L0+L1
+
     Vars = matches.matches(Item,'!...function_parameter_element.. ? !function_parameter_element')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
@@ -530,10 +536,11 @@ def get_list__(Item):
 
     Vars = matches.matches(Item,'!primary !.DoubleStar__primary.')
     if Vars:
-        L0 =  get_list(db.db[Vars[0]])
-        L1 =  get_list(db.db[Vars[1]])
+        L0 =  get_list_db(Vars[0])
+        L1 =  get_list_db(Vars[1])
         if L1==[]:
             return L0
+
         return [('dstar',L0,L1)]
 
     Vars = matches.matches(Item,'Comma ?t !...identifier..')

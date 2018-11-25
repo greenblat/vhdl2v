@@ -1688,6 +1688,9 @@ def myExtras(Token):
 def pr_net_def(Wid,Dir,Name):
     if Wid==Dir:
         return '%s %s'%(pr_dir(Dir),pr_expr(Name))
+    if Wid[0]=='logic':
+        return '%s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name))
+        
     if is_double_def(Wid):
           if (Wid[0]=='packed'):
               return '%s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name))

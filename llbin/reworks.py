@@ -55,7 +55,11 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
         Vars = matches.matches_l(Item,'signal ?s ?s')
         if Vars:
             good=True
-            addNet(Mod,Vars[0],'',Vars[1],Vars[1])
+            Type = Vars[1]
+            if Type in Mod.typedefs:
+                addNet(Mod,Vars[0],'logic',Mod.typedefs[Type],0)
+            else:
+                addNet(Mod,Vars[0],'',Vars[1],Vars[1])
         Vars = matches.matches_l(Item,'signal ?l ?s')
         if Vars:
             good=True
@@ -81,17 +85,27 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
         if Vars:
             good=True
             missing('typedef record')
-        Vars = matches.matches_l(Item,'typedef ?s [ std_logic_vector [ ?sD ?  ?sI ] ]')
+        Vars = matches.matches_l(Item,'typedef ?s [ ?s [ ?sD ?  ?sI ] ]')
         if Vars:
-            good=True
-            missing('typedef std_logic_vector')
-        Vars = matches.matches_l(Item,'typedef ?s [ array  ? ? ]')
-        if Vars:
-            Vars2 = matches.matches_l(Vars[1],'discrete [ ?sD ?sI ?sI ]',True)
-            Vars3 = matches.matches_l(Vars[2],'std_logic_vector [ ?sD ?sI ?sI ]')
-            if Vars2 and Vars3:
-                Mod.typedefs[Vars[0]] = ('double',(Vars2[1],Vars2[2]),(Vars3[1],Vars3[2]))
+            if Vars[1] in ['std_logic_vector','unsigned']:
                 good=True
+                Hi = vexpr(Vars[3])
+                Lo = vexpr(Vars[4])
+                Mod.typedefs[Vars[0]] = ('logic',(Hi,Lo))
+        Vars = matches.matches_l(Item,'typedef ?s [ array  [ ?s ? ] ?s ]')
+        if Vars:
+            if Vars[1] in ['discrete']:
+                Vars2 = matches.matches_l(Vars[2],'?sD ?sI ?sI')
+                if Vars2:
+                    Sub=Vars[3]
+                    if Sub in Mod.typedefs:
+                        Sub = Mod.typedefs[Sub]
+                        if Sub[0]=='logic': Sub=Sub[1]
+                        Mod.typedefs[Vars[0]] = ('double',(Vars2[1],Vars2[2]),Sub)
+                    else:
+                        Mod.typedefs[Vars[0]] = ('double',(Vars2[1],Vars2[2]),Vars[3])
+
+                    good=True
         Vars = matches.matches_l(Item,'component ?s ? ?')
         if Vars:
             Comp = Vars[0]
@@ -181,6 +195,19 @@ def addPort(Item,Mod):
 def addNet(Mod,Sigs,Dir,Kind,Wid):
     if type(Sigs) is str:
         Sigs = [Sigs]
+
+    if (type(Kind) is tuple)and(Wid==0):
+        Vars = matches.matches_l(Kind,'double [ ? ? ] [  ? ? ]')
+        if Vars:
+            Hi0 = vexpr(Vars[0])
+            Lo0 = vexpr(Vars[1])
+            Hi1 = vexpr(Vars[2])
+            Lo1 = vexpr(Vars[3])
+            for Sig in Sigs:
+                Mod.add_net(Sig,Dir,('double',(Hi0,Lo0),(Hi1,Lo1)))
+            return
+
+
     if Wid == 'std_logic':
         for Sig in Sigs: Mod.add_net(Sig,'logic',0)
         return
@@ -323,6 +350,9 @@ def reworkStmt(Stmt):
         Vars = matches.matches_l(Stmt[1],'in ?s [ TO ?s ?s ]')
         if Vars:
             return ('for',('=',Vars[0],Vars[1]),('<',Vars[0],Vars[2]),('=',Vars[0],('+',Vars[0],1)),Body)
+        Vars = matches.matches_l(Stmt[1],'in ?s ?s')
+        if Vars:
+            return ('for',('=',Vars[0],Vars[1]),('<',Vars[0],Vars[1]),('=',Vars[0],('+',Vars[0],1)),Body)
             
     if Stmt[0]=='aggregate':
         if (len(Stmt)==3)and(type(Stmt[2]) is list):
@@ -356,7 +386,7 @@ def reworkCases(List):
 
 
 BIOPS = ('+ - * / & | ~ ^ ').split()
-VHDLOPS = {'AND':'&','OR':'|','EQSym':'==','not':'~','Star':'*','Slash':'/','GTSym':'>','LTSym':'<'}
+VHDLOPS = {'AND':'&','OR':'|','EQSym':'==','not':'~','Star':'*','Slash':'/','GTSym':'>','LTSym':'<','**':'**'}
 
 def vexpr(Item):
     A = vexpr__(Item)
@@ -453,6 +483,12 @@ def vexpr__(Item):
                 return ('subbit',Vars[0],Ind)
     if Item[0]=='multing':
         return vexpr((Item[2],Item[1],Item[3]))
+    Vars = matches.matches_l(Item,'dstar ? [ ** ? ]')
+    if Vars:
+       A = vexpr(Vars[0]) 
+       B = vexpr(Vars[1])
+       return ('**',A,B)
+        
 
     Vars = matches.matches_l(Item,'choice_arrow OTHERS ? ?')
     if Vars:
