@@ -158,7 +158,7 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
 def addParam(Item,Mod):
     printl('addParam %s'%str(Item))
 
-DIRS = {'IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned'}
+DIRS = {'IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic'}
 def addPort(Item,Mod):
     Vars = matches.matches_l(Item,'signal ? ?s ?s [ ?s ?s ?s ]')
     if Vars:
