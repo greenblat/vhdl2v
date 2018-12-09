@@ -531,8 +531,15 @@ class module_class:
                     (Dir,WW) = self.nets[Name]
                     if (type(WW)is tuple)and(len(WW)==2):
                         (H,L)=WW
-                        H = max(H,Ind)
-                        L = min(L,Ind)
+                        try:
+                            H = max(H,Ind)
+                        except:
+                            pass
+
+                        try:
+                            L = min(L,Ind)
+                        except:
+                            pass
                         self.nets[Name]=(Dir,(H,L))
                     elif (type(WW)is tuple)and(len(WW)==3):
                         if WW[0] not in ['packed','double']:

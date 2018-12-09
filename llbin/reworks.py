@@ -212,7 +212,7 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
 def addParam(Item,Mod):
     printl('addParam %s'%str(Item))
 
-DIRS = {'IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic','wire signed':'wire signed'}
+DIRS = {'BUFFER':'output','IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic','wire signed':'wire signed'}
 def addPort(Item,Mod):
     Vars = matches.matches_l(Item,'signal ? ?s ?s [ ?s ?s ?s ]')
     if Vars:
@@ -354,7 +354,17 @@ def addStuff(db,Mod,Stuff):
         logs.log_error('addStuff got  %s'%(str(Stuff[0])))
 
 def addInstanceParam(Mod,Inst,List):
-    logs.log_error('add generics to instance %s %s'%(Inst,List))
+    if List[0]=='generic_map':
+        addInstanceParam(Mod,Inst,List[1])
+        return
+
+    for A,Prm,Val in List:
+        if A=='arrow_or':
+            Mod.add_inst_param(Inst,Prm,Val)
+        else:
+            logs.log_error('addInstanceParam of %s got %s %s %s'%str(Inst,A,Prm,Val))
+
+
 def addInstanceConns(db,Mod,Inst,List):
     Type = Mod.insts[Inst].Type
     if Type in db.Components:
