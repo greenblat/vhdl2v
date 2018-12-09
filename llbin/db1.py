@@ -200,6 +200,43 @@ def get_list_db(Item,Verbose=False):
     if Verbose: logs.log_info('exit get_list_db item=%s Db=%s res=%s'%(Item,Db,Res))
     return Res
 
+def get_iterative_list_2(Item,First,Second,Middle=''):
+    Vars = matches.matches(Item,'%s %s %s'%(First,Middle,Second))
+    if Vars:
+        LL = []
+        Ok=True
+        Vars2 = True
+        while Vars2:
+            Item0 = db.db[Vars[-1]]
+            Vars2 = matches.matches(Item0,'%s %s %s'%(First,Middle,Second))
+            if Vars2:
+                L1 = get_list_db(Vars2[0])
+            else:
+                L1 = get_list(Item0)
+            LL = LL+L1
+        L2 = get_list_db(Vars[0])
+        return LL+L2
+    else:
+        return get_list(Item)
+
+def get_iterative_list_1(Item,First,Second,Middle=''):
+    Vars = matches.matches(Item,'%s %s %s'%(First,Middle,Second))
+    if Vars:
+        LL = []
+        Ok=True
+        Vars2 = True
+        while Vars2:
+            Item0 = db.db[Vars[0]]
+            Vars2 = matches.matches(Item0,'%s %s %s'%(First,Middle,Second))
+            if Vars2:
+                L1 = get_list_db(Vars2[-1])
+            else:
+                L1 = get_list(Item0)
+            LL = L1+LL
+        L2 = get_list_db(Vars[-1])
+        return LL+L2
+    else:
+        return get_list(Item)
 
 def get_list__(Item):
     if (type(Item) is list)and(len(Item)==1):
@@ -253,15 +290,18 @@ def get_list__(Item):
         return L0+L1
     Vars = matches.matches(Item,'!...formal_generic_element.. ? !formal_generic_element')
     if Vars:
-        L0 = get_list(db.db[Vars[0]])
-        L1 = get_list(db.db[Vars[1]])
-        return L0+L1
+#        L0 = get_list(db.db[Vars[0]])
+#        L1 = get_list(db.db[Vars[1]])
+        LL = get_iterative_list_1(Item,'!...formal_generic_element..','!...formal_generic_element..','?')
+        return LL
 
     Vars = matches.matches(Item,'!formal_port_element !...formal_port_element..')
     if Vars:
-        L0 = get_list(db.db[Vars[0]])
-        L1 = get_list(db.db[Vars[1]])
-        return L0+L1
+#        L0 = get_list(db.db[Vars[0]])
+#        L1 = get_list(db.db[Vars[1]])
+        LL = get_iterative_list_2(Item,'!formal_port_element','!...formal_port_element..')
+#        return L0+L1
+        return LL
 
     Vars = matches.matches(Item,'!local_port_element !...local_port_element..')
     if Vars:
