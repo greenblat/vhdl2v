@@ -284,7 +284,7 @@ def get_list__(Item):
     Vars = matches.matches(Item,'!...function_parameter_element.. ? !function_parameter_element')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
-        L1 = get_list(db.db[Vars[1]])
+        L1 = get_list(db.db[Vars[2]])
         return L0+L1
 
     Vars = matches.matches(Item,'!sign !term')
@@ -348,7 +348,7 @@ def get_list__(Item):
         return [('dot',A,B)]
     Vars = matches.matches(Item,'!name RANGE Box')
     if Vars:
-        A = get_list(db.db[Vars[0]])
+        A = get_list_db(Vars[0])
         return [('box_range',A)]
 
     Vars = matches.matches(Item,'!association_element !...association_element..')
@@ -506,7 +506,7 @@ def get_list__(Item):
     Vars = matches.matches(Item,'!...procedure_parameter_element.. ? !procedure_parameter_element')
     if Vars:
         L0 =  get_list_db(Vars[0])
-        L1 =  get_list_db(Vars[1])
+        L1 =  get_list_db(Vars[2])
         return L0+L1
 
     Vars = matches.matches(Item,'LeftParen !procedure_parameter_element  !...procedure_parameter_element.. !RightParen_ERR')
@@ -516,8 +516,13 @@ def get_list__(Item):
         return L0+L1
     Vars = matches.matches(Item,'!.procedure_parameter_object_class. !identifier_list Colon !.procedure_parameter_mode. !type_mark !.constraint. !.VarAsgn__expression.')
     if Vars:
-        logs.log_info('wtf')
-        return []
+        L0 =  get_list_db(Vars[0])
+        L1 =  get_list_db(Vars[1])
+        L2 =  get_list_db(Vars[2])
+        L3 =  get_list_db(Vars[3])
+        L4 =  get_list_db(Vars[4])
+        L5 =  get_list_db(Vars[5])
+        return [('procedure',L0,L1,L2,L3,L4,L5)]
 
     Vars = matches.matches(Item,'!simple_expression !direction !simple_expression')
     if Vars:
@@ -692,7 +697,7 @@ def get_list__(Item):
     Vars = matches.matches(Item,'WHEN !choices Arrow !sequence_of_statements')
     if Vars:
         Choices = get_list(db.db[Vars[0]]) 
-        Seq = get_list(db.db[Vars[1]]) 
+        Seq = get_list_db(Vars[1]) 
         return [('when',Choices,Seq)]
     Vars = matches.matches(Item,'!choice !..Bar__choice..')
     if Vars:
@@ -819,13 +824,11 @@ def get_list__(Item):
     Vars = matches.matches(Item,'SUBTYPE ?t IS !subtype_indication ?')
     if Vars:
         Def =get_list_db(Vars[1])
-        printl('def1 is %s'%str(Def))
         return [('typedef',Vars[0],Def)]
 
     Vars = matches.matches(Item,'TYPE ?t IS !type_definition ?')
     if Vars:
         Def = get_list_db(Vars[1])
-        printl('def2 is %s  %s %s'%(Def,Vars[1],db.db[Vars[1]]))
         return [('typedef',Vars[0],Def)]
 
     Vars = matches.matches(Item,'LeftParen !enumeration_literal !...enumeration_literal.. ?')
@@ -868,7 +871,7 @@ def get_list__(Item):
     if Vars:
         A = get_list(db.db[Vars[0]])
         B = get_list(db.db[Vars[1]])
-        C = get_list(db.db[Vars[2]])
+        C = get_list(db.db[Vars[3]])
         return [('array',A,B,C)]
 
     Vars = matches.matches(Item,'ARRAY !index_constraint OF !subtype_indication')
@@ -958,6 +961,9 @@ def get_list__(Item):
         C = get_list(db.db[Vars[2]])
         return [('alias',A,B,C)]
 
+    Vars =  matches.matches(Item,'NULL_ !Semicolon_ERR')
+    if Vars:
+        return []
     Vars =  matches.matches(Item,'!name !Semicolon_ERR')
     if Vars:
         AA = get_list_db(Vars[0])

@@ -48,6 +48,11 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
     if type(Decls)is tuple: Decls = [Decls]
     for Item in Decls:
         good=False
+        Vars = matches.matches_l(Item,'signal ?s [ ?s [ range [ ?sD ?s ?s ] ] ]')
+        if Vars:
+            good=True
+            Mod.add_net(Vars[0],'logic',(vexpr(Vars[3]),vexpr(Vars[4])))
+
         Vars = matches.matches_l(Item,'signal ?s [ ?s [ ? ? ? ] ]')
         if Vars:
             good=True
@@ -71,6 +76,23 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
         Vars = matches.matches_l(Item,'alias ?s ? ?')
         if Vars:
             good=True
+        Vars = matches.matches_l(Item,'typedef ?s [ ?s [ range [ ?sD ?s ?s ] ] ]')
+        if Vars:
+            if Vars[1] in ['natural','integer']:
+                Var = Vars[0]
+                if Vars[2]=='TO':
+                    Big = Vars[4]
+                else:
+                    Big = Vars[3]
+                if Big[0] in '0123456789':
+                    Big = eval(Big)
+                    Bits = len(bin(Big))-2
+                    Mod.typedefs[Vars[0]] = ('logic',(Big-1,0))
+                    good=True
+
+
+
+
         Vars = matches.matches_l(Item,'typedef ?s [ enumlist  ? ]')
         if Vars:
             good=True
@@ -87,11 +109,30 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
             missing('typedef record')
         Vars = matches.matches_l(Item,'typedef ?s [ ?s [ ?sD ?  ?sI ] ]')
         if Vars:
-            if Vars[1] in ['std_logic_vector','unsigned']:
+            if Vars[1] in ['std_logic_vector','unsigned','signed']:
                 good=True
                 Hi = vexpr(Vars[3])
                 Lo = vexpr(Vars[4])
-                Mod.typedefs[Vars[0]] = ('logic',(Hi,Lo))
+                if Vars[1]=='signed':
+                    Mod.typedefs[Vars[0]] = ('signed',(Hi,Lo))
+                else:
+                    Mod.typedefs[Vars[0]] = ('logic',(Hi,Lo))
+
+        Vars = matches.matches_l(Item,'typedef ?s [ array  [ discrete [ ? ? ] ] ? ]')
+        if Vars:
+             good=True
+             AA = vexpr(Vars[1])
+             BB = vexpr(Vars[2])
+             CC = vexpr(Vars[3])
+             AA = exploreKind(Mod,AA)
+             BB = exploreKind(Mod,BB)
+             CC = exploreKind(Mod,CC)
+             Mod.typedefs[Vars[0]] = ('triple',AA,BB,CC)
+
+        Vars = matches.matches_l(Item,'typedef ?s [ array  [ box_range  ? ] ? ?s ]')
+        if Vars:
+             Mod.typedefs[Vars[0]] = ('array',Vars[3])
+             good=True
         Vars = matches.matches_l(Item,'typedef ?s [ array  [ ?s ? ] ?s ]')
         if Vars:
             if Vars[1] in ['discrete']:
@@ -120,10 +161,14 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
                 good=True
                 Mod.localparams[Vars[0]]=Val
 
+        Vars = matches.matches_l(Item,'taskhead ?s ?')
+        if Vars:
+            good=True
+            Mod.funcheads[Vars[0]] = (Vars[1],'taskhead')
         Vars = matches.matches_l(Item,'funchead ?s ?  ?s')
         if Vars:
             good=True
-            missing('funchead')
+            Mod.funcheads[Vars[0]] = (Vars[1],Vars[2])
         Vars = matches.matches_l(Item,'constant ?s ?s ?s')
         if Vars and not True:
             good=True
@@ -146,6 +191,15 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
             good=True
             Mod.localparams[Vars[0]]=vexpr(Vars[1])
                 
+        Vars = matches.matches_l(Item,'constant ?s [ signed [ ?sD ? ? ] ] [ aggregate to_signed [ ? ?s ] ]')
+        if Vars:
+            good=True
+            Hi = vexpr(Vars[2])
+            Lo = vexpr(Vars[3])
+            Val = vexpr(Vars[4])
+            addNet(Mod,[Vars[0]],'','wire signed',(Hi,Lo))
+            Mod.add_hard_assign(Vars[0],Val)
+
                 
         if not good: 
             logs.log_error('item in declarations failed "%s"'%str(Item))
@@ -158,7 +212,7 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
 def addParam(Item,Mod):
     printl('addParam %s'%str(Item))
 
-DIRS = {'IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic'}
+DIRS = {'IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic','wire signed':'wire signed'}
 def addPort(Item,Mod):
     Vars = matches.matches_l(Item,'signal ? ?s ?s [ ?s ?s ?s ]')
     if Vars:
@@ -195,6 +249,28 @@ def addPort(Item,Mod):
 def addNet(Mod,Sigs,Dir,Kind,Wid):
     if type(Sigs) is str:
         Sigs = [Sigs]
+    if (type(Kind) is tuple)and(Kind[0]=='triple'):
+        for Sig in Sigs:
+            Mod.add_net(Sig,Dir,('triple',Kind[1],Kind[1],Kind[2]))
+
+
+        return
+    if (type(Kind) is tuple)and(Dir=='logic'):
+        if Kind[0]=='logic':
+            for Sig in Sigs:
+                Mod.add_net(Sig,Dir,(vexpr(Kind[1][0]),vexpr(Kind[1][1])))
+            return
+            
+    if Kind in Mod.typedefs:
+        Kind = exploreKind(Mod,Kind)
+        if Kind[0]=='array':
+            if (type(Wid) is tuple)and(len(Wid)==2):
+                Kind = Kind[1]
+                if Kind[0]=='logic':
+                    Wid0 = Kind[1]
+                    for Sig in Sigs:
+                        Mod.add_net(Sig,'logic',('double',Wid0,Wid))
+                return 
 
     if (type(Kind) is tuple)and(Wid==0):
         Vars = matches.matches_l(Kind,'double [ ? ? ] [  ? ? ]')
@@ -220,7 +296,7 @@ def addNet(Mod,Sigs,Dir,Kind,Wid):
             Mod.add_net(Sig,Dir,Kind)
         return
 
-    if (Dir in ['IN','OUT'])and (Kind not in DIRS):
+    if (Dir in ['IN','OUT'])and (type(Kind) is str) and(Kind not in DIRS):
         Dir = '%s %s'%(DIRS[Dir],Kind)
         Mod.extTypes.append(Kind)
         for Sig in Sigs: Mod.add_net(Sig,Dir,Wid)
@@ -234,7 +310,7 @@ def addNet(Mod,Sigs,Dir,Kind,Wid):
         Dir = DIRS[Dir]
     else:
         logs.log_error('Dir of signal %s is "%s"   %s'%(Sigs,Dir,Mod.typedefs.keys()))
-    if Kind in DIRS:
+    if (type(Kind) is str) and(Kind in DIRS):
         Kind = DIRS[Kind]
     else:
         logs.log_error('Kind of signal %s is "%s"  %s'%(Sigs,Kind,Mod.typedefs.keys()))
@@ -245,6 +321,18 @@ def addNet(Mod,Sigs,Dir,Kind,Wid):
     if Wid=='std_logic': Wid=0
     for Sig in Sigs:
         Mod.add_net(Sig,DK,Wid)
+
+def exploreKind(Mod,Kind):
+    Kind = Mod.typedefs[Kind]
+    if Kind[0]=='logic':
+        return Kind[1]
+    if Kind[0]=='array':
+        Who = Kind[1]
+        if Who in Mod.typedefs:
+            Who = Mod.typedefs[Who]
+            return ('array',Who)
+    logs.log_error('exploreKind got %s'%str(Kind))
+    return Kind
 
 def addStuff(db,Mod,Stuff):
     if Stuff==[]: return
@@ -304,10 +392,14 @@ def getIndPin(Type,Pins,ind):
     logs.log_error('getIndPin in pins of %s is not good "%s"'%(Type,Pins[0]))
 
 def addProcess(Mod,Process):
-    Sense = Process[0]
+    Sense = list(map(vexpr,Process[0]))
     Vars = Process[1]
     Stmt = Process[2]
-    Stmt2 = reworkStmt(Stmt)
+    Vars2 = reworkStmt(Vars)
+    if type(Vars2) is tuple: Vars2 = ['list',Vars2]
+    Stmts = reworkStmt(Stmt)
+    if Stmts[0]=='list': Stmts = Stmts[1:]
+    Stmt2 = Vars2+Stmts
     Mod.alwayses.append((Sense,Stmt2,'always'))
 #    logs.log_error('addProcess got  %s'%(str(Process)))
     
@@ -358,7 +450,14 @@ def reworkStmt(Stmt):
         if (len(Stmt)==3)and(type(Stmt[2]) is list):
             return ('taskcall',Stmt[1],list(map(vexpr,Stmt[2])))
         
-    
+    if Stmt[0]=='variable':
+        Vars = matches.matches_l(Stmt,'variable ?s [ natural [ range [ ?sD ?s ?s ] ] ]  ?',True)
+        if Vars:
+            return ('integer',Vars[0])
+            
+        logs.log_error('variable %s'%str(Stmt))
+        return []
+
     logs.log_error('reworkStmt %d "%s"'%(len(Stmt),Stmt))
     return Stmt
 

@@ -26,6 +26,7 @@ class module_class:
         self.newvers=[]
         self.tasks={}
         self.typedefs={}
+        self.funcheads={}
         self.enums={}
         self.modports={}
         self.Vars={}
@@ -830,7 +831,9 @@ def support_set__(Sig,Bussed):
     if type(Sig) is str: 
         if Sig[0]=='`': return []
         if Sig in OPS : return []
+        if Sig in MathOps : return []
         if Sig in KEYWORDS : return []
+        if Sig[0] in '0123456789': return []
         return [Sig]
     if isinstance(Sig,(tuple,list)):
         if len(Sig)==1:
@@ -1598,6 +1601,8 @@ def is_double_def(Wid):
         return False
     if (len(Wid)==3)and(Wid[0] in ['packed','double']):
         return True
+    if (len(Wid)==4)and(Wid[0] in ['triple']):
+        return True
     if len(Wid)!=2:
         logs.log_err('bad width definition, ilia!  %s '%(str(Wid)))
         logs.pStack()
@@ -1690,9 +1695,13 @@ def pr_net_def(Wid,Dir,Name):
         return '%s %s'%(pr_dir(Dir),pr_expr(Name))
     if Wid[0]=='logic':
         return '%s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name))
+    if Wid[0]=='signed':
+        return '%s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name))
         
     if is_double_def(Wid):
-          if (Wid[0]=='packed'):
+          if (Wid[0]=='triple'):
+              return '%s %s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_wid(Wid[3]),pr_expr(Name))
+          elif (Wid[0]=='packed'):
               return '%s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_wid(Wid[2]),pr_expr(Name))
           else:
               return '%s %s %s %s'%(pr_dir(Dir),pr_wid(Wid[1]),pr_expr(Name),pr_wid(Wid[2]))
