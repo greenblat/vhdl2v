@@ -206,11 +206,12 @@ def get_iterative_list_2(Item,First,Second,Middle=''):
         LL = []
         Ok=True
         Vars2 = True
+        Item0 = db.db[Vars[-1]]
         while Vars2:
-            Item0 = db.db[Vars[-1]]
             Vars2 = matches.matches(Item0,'%s %s %s'%(First,Middle,Second))
             if Vars2:
                 L1 = get_list_db(Vars2[0])
+                Item0 = db.db[Vars2[-1]]
             else:
                 L1 = get_list(Item0)
             LL = LL+L1
@@ -225,11 +226,12 @@ def get_iterative_list_1(Item,First,Second,Middle=''):
         LL = []
         Ok=True
         Vars2 = True
+        Item0 = db.db[Vars[0]]
         while Vars2:
-            Item0 = db.db[Vars[0]]
             Vars2 = matches.matches(Item0,'%s %s %s'%(First,Middle,Second))
             if Vars2:
                 L1 = get_list_db(Vars2[-1])
+                Item0 = db.db[Vars2[0]]
             else:
                 L1 = get_list(Item0)
             LL = L1+LL
@@ -292,7 +294,7 @@ def get_list__(Item):
     if Vars:
 #        L0 = get_list(db.db[Vars[0]])
 #        L1 = get_list(db.db[Vars[1]])
-        LL = get_iterative_list_1(Item,'!...formal_generic_element..','!...formal_generic_element..','?')
+        LL = get_iterative_list_1(Item,'!...formal_generic_element..','!formal_generic_element','?')
         return LL
 
     Vars = matches.matches(Item,'!formal_port_element !...formal_port_element..')
@@ -404,9 +406,10 @@ def get_list__(Item):
         return L0+L1
     Vars = matches.matches(Item,'!...formal_port_element.. ? !formal_port_element')
     if Vars:
-        L0 = get_list(db.db[Vars[0]])
-        L1 = get_list(db.db[Vars[2]])
-        return L0+L1
+        LL =  get_iterative_list_1(Item,'!...formal_port_element..','!formal_port_element',Middle='?'):
+#        L0 = get_list(db.db[Vars[0]])
+#        L1 = get_list(db.db[Vars[2]])
+#        return L0+L1
     Vars =  matches.matches(Item,'!..case_statement_alternative.. !case_statement_alternative')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
