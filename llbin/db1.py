@@ -808,9 +808,11 @@ def get_list__(Item):
 
     Vars = matches.matches(Item,'!...local_port_element.. ? !local_port_element')
     if Vars:
-        A = get_list(db.db[Vars[0]])
-        B = get_list(db.db[Vars[2]])
-        return A+B
+        LL = get_iterative_list_1(Item,'!...local_port_element..','!local_port_element','?')
+        return LL
+#        A = get_list(db.db[Vars[0]])
+#        B = get_list(db.db[Vars[2]])
+#        return A+B
 
     Vars = matches.matches(Item,'Comma !association_element !...association_element..')
     if Vars:
