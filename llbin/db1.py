@@ -406,7 +406,7 @@ def get_list__(Item):
         return L0+L1
     Vars = matches.matches(Item,'!...formal_port_element.. ? !formal_port_element')
     if Vars:
-        LL =  get_iterative_list_1(Item,'!...formal_port_element..','!formal_port_element',Middle='?'):
+        LL =  get_iterative_list_1(Item,'!...formal_port_element..','!formal_port_element',Middle='?')
 #        L0 = get_list(db.db[Vars[0]])
 #        L1 = get_list(db.db[Vars[2]])
 #        return L0+L1
