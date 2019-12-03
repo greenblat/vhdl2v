@@ -45,6 +45,16 @@ def run(db):
             workInArchStuffs(Thing[2],[],db,Mod)
 
 def workInArchStuffs(Decls,Stuffs,db,Mod):
+    workArchDecls(Decls,db,Mod)
+    print('TELL',len(Stuffs),type(Stuffs)is list)
+    if type(Stuffs)is list:
+        for Stuff in Stuffs:
+            addStuff(db,Mod,Stuff)
+    else:
+        addStuff(db,Mod,Stuffs)
+
+
+def workArchDecls(Decls,db,Mod):
     if type(Decls)is tuple: Decls = [Decls]
     for Item in Decls:
         good=False
@@ -69,6 +79,16 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
         if Vars:
             good=True
             addNet(Mod,Vars[0],'',Vars[1],Vars[1])
+
+        Vars = matches.matches_l(Item,'signal ?s [ std_logic_vector [ DOWNTO ?s ?s ] ] [ ] ?s')
+        if Vars:
+            good=True
+            addNet(Mod,Vars[0],'','wire',Vars[1])
+        Vars = matches.matches_l(Item,'signal ?s ?s  [ ] ?s')
+        if Vars:
+            good=True
+            addNet(Mod,Vars[0],'','wire',0)
+
         Vars = matches.matches_l(Item,'signal ?l [ ?s [ ? ? ? ] ]')
         if Vars:
             good=True
@@ -200,19 +220,25 @@ def workInArchStuffs(Decls,Stuffs,db,Mod):
             addNet(Mod,[Vars[0]],'','wire signed',(Hi,Lo))
             Mod.add_hard_assign(Vars[0],Val)
 
+        Vars = matches.matches_l(Item,'constant ?s string ?s ')
+        if Vars:
+            good=True
+        Vars = matches.matches_l(Item,'constant ?s boolean ?s ')
+        if Vars:
+            good=True
+            addNet(Mod,Vars[0],'','wire',0)
+            if Vars[1]=='true': Vars[1]=1
+            if Vars[1]=='false': Vars[1]=0
+            Mod.add_hard_assign(Vars[0],Vars[1])
                 
         if not good: 
             logs.log_error('item in declarations failed "%s"'%str(Item))
-    if type(Stuffs)is list:
-        for Stuff in Stuffs:
-            addStuff(db,Mod,Stuff)
-    else:
-        addStuff(db,Mod,Stuffs)
+
 
 def addParam(Item,Mod):
     printl('addParam %s'%str(Item))
 
-DIRS = {'BUFFER':'output','IN':'input','OUT':'output','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic','wire signed':'wire signed'}
+DIRS = {'BUFFER':'output','IN':'input','OUT':'output','INOUT':'inout','std_logic':'logic','std_logic_vector':'logic','wire':'wire','signed':'signed','unsigned':'unsigned','logic':'logic','wire signed':'wire signed'}
 def addPort(Item,Mod):
     Vars = matches.matches_l(Item,'signal ? ?s ?s [ ?s ?s ?s ]')
     if Vars:
@@ -350,12 +376,18 @@ def addStuff(db,Mod,Stuff):
             addInstanceParam(Mod,Stuff[1],Stuff[3])
         if Stuff[4]!=[]: 
             addInstanceConns(db,Mod,Stuff[1],Stuff[4])
+    elif Stuff[0]=='labeled_gen':
+        M1 = ['named_begin',Stuff[1],Stuff[2]]
+        Mod.generates.append(M1)
     else:
         logs.log_error('addStuff got  %s'%(str(Stuff[0])))
 
 def addInstanceParam(Mod,Inst,List):
     if List[0]=='generic_map':
         addInstanceParam(Mod,Inst,List[1])
+        return
+    if List[0]=='arrow_or':
+        Mod.add_inst_param(Inst,List[1],List[2])
         return
 
     for A,Prm,Val in List:
@@ -409,7 +441,7 @@ def addProcess(Mod,Process):
     if type(Vars2) is tuple: Vars2 = ['list',Vars2]
     Stmts = reworkStmt(Stmt)
     if Stmts[0]=='list': Stmts = Stmts[1:]
-    Stmt2 = Vars2+Stmts
+    Stmt2 = list(Vars2)+list(Stmts)
     Mod.alwayses.append((Sense,Stmt2,'always'))
 #    logs.log_error('addProcess got  %s'%(str(Process)))
     
@@ -461,11 +493,20 @@ def reworkStmt(Stmt):
             return ('taskcall',Stmt[1],list(map(vexpr,Stmt[2])))
         
     if Stmt[0]=='variable':
-        Vars = matches.matches_l(Stmt,'variable ?s [ natural [ range [ ?sD ?s ?s ] ] ]  ?',True)
+        Vars = matches.matches_l(Stmt,'variable ?s [ natural [ range [ ?sD ?s ?s ] ] ]  ?')
         if Vars:
-            return ('integer',Vars[0])
+            return ('integer',0,Vars[0])
+        Vars = matches.matches_l(Stmt,'variable ?s natural ?')
+        if Vars:
+            return ('integer',0,Vars[0])
+        Vars = matches.matches_l(Stmt,'variable ?s std_logic  ?')
+        if Vars:
+            return ('logic',0,Vars[0])
+        Vars = matches.matches_l(Stmt,'variable ?s [ std_logic_vector [ ?sD ?s ?s ] ]  ?')
+        if Vars:
+            return ('logic',('width',Vars[2],Vars[3]),Vars[0])
             
-        logs.log_error('variable %s'%str(Stmt))
+        logs.log_error('(reworks) variable %s'%str(Stmt))
         return []
 
     logs.log_error('reworkStmt %d "%s"'%(len(Stmt),Stmt))
@@ -495,7 +536,7 @@ def reworkCases(List):
 
 
 BIOPS = ('+ - * / & | ~ ^ ').split()
-VHDLOPS = {'AND':'&','OR':'|','EQSym':'==','not':'~','Star':'*','Slash':'/','GTSym':'>','LTSym':'<','**':'**'}
+VHDLOPS = {'AND':'&','OR':'|','EQSym':'==','not':'~','Star':'*','Slash':'/','GTSym':'>','LTSym':'<','**':'**','GESym':'>=','/=':'!=','=>':'=>','<=':'<='}
 
 def vexpr(Item):
     A = vexpr__(Item)
@@ -528,8 +569,8 @@ def vexpr__(Item):
 
     if isinstance(Item,(str,int)): return Item
     
-
-    if (type(Item[0]) is str)and(Item[0] in VHDLOPS):
+    if len(Item)==0: return ''
+    if isinstance(Item[0],str)and(Item[0] in VHDLOPS):
         if len(Item)==3:
             Nitem = (VHDLOPS[Item[0]],Item[1],Item[2])
             return vexpr(Nitem)

@@ -52,6 +52,9 @@ def main():
     logs.log_info('TELL dbscan arch=%d ent=%d pckg=%d scn=%d'%(len(dbscan.Architectures.keys()), len(dbscan.Entities.keys()), len(dbscan.Packages.keys()), len(dbscan.Scanned)))
 
     reworks.run(dbscan)
+    for Module in dbscan.Modules:
+        Mod = dbscan.Modules[Module]
+        Mod.dump('+aa')
     always.run(dbscan)
     Fout = open('modules.v','w')
     for Pack in dbscan.Packages:

@@ -300,16 +300,16 @@ def get_list__(Item):
         L0 = get_list(db.db[Vars[0]])
         L1 = get_list(db.db[Vars[1]])
         return L0+L1
-        LL = get_iterative_list_1(Item,'!...formal_generic_element..','!formal_generic_element','?')
-        return LL
+#        LL = get_iterative_list_1(Item,'!...formal_generic_element..','!formal_generic_element','?')
+#        return LL
 
     Vars = matches.matches(Item,'!formal_port_element !...formal_port_element..')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
         L1 = get_list(db.db[Vars[1]])
         return L0+L1
-        LL = get_iterative_list_2(Item,'!formal_port_element','!...formal_port_element..')
-        return LL
+#        LL = get_iterative_list_2(Item,'!formal_port_element','!...formal_port_element..')
+#        return LL
 
     Vars = matches.matches(Item,'!local_port_element !...local_port_element..')
     if Vars:
@@ -415,8 +415,8 @@ def get_list__(Item):
         L0 = get_list__(db.db[Vars[0]])
         L1 = get_list(db.db[Vars[2]])
         return L0+L1
-        LL =  get_iterative_list_1(Item,'!...formal_port_element..','!formal_port_element','?')
-        return LL
+#        LL =  get_iterative_list_1(Item,'!...formal_port_element..','!formal_port_element','?')
+#        return LL
     Vars =  matches.matches(Item,'!..case_statement_alternative.. !case_statement_alternative')
     if Vars:
         L0 = get_list(db.db[Vars[0]])
@@ -815,8 +815,8 @@ def get_list__(Item):
 
     Vars = matches.matches(Item,'!...local_port_element.. ? !local_port_element')
     if Vars:
-        LL = get_iterative_list_1(Item,'!...local_port_element..','!local_port_element','?')
-        return LL
+#        LL = get_iterative_list_1(Item,'!...local_port_element..','!local_port_element','?')
+#        return LL
         A = get_list(db.db[Vars[0]])
         B = get_list(db.db[Vars[2]])
         return A+B
@@ -1021,6 +1021,15 @@ def get_list__(Item):
         AA = get_list_db(Vars[0])
 #        logs.log_error('matches !name %d %s'%(len(AA),str(AA)))
         return AA
+    Vars = matches.matches(Item,'!relation..AND__relation.. AND !relation')
+    if Vars:
+        A = get_list(db.db[Vars[0]])
+        B = get_list(db.db[Vars[1]])
+        return [('AND',A,B)]
+
+
+
+
 
 ############################################
     logs.log_err('get_list %s'%str(Item))
@@ -1043,7 +1052,8 @@ def simplify(Item):
 
     if type(Item) is tuple:
         LL = list(map(simplify,Item))
-        while LL[-1]==[]: LL.pop(-1)
+        if LL==[]: return tuple(LL)
+        while (LL!=[])and(LL[-1]==[]): LL.pop(-1)
         if len(LL)==1: return LL[0]
         return tuple(LL)
 

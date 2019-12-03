@@ -82,7 +82,7 @@ class module_class:
             self.nets[Name]=(Dir,Wid)
         elif (len(ww)==2)and(ww[0] in ['input','output'])and(ww[1] in self.extTypes):
             self.nets[Name]=(Dir,Wid)
-        elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar','signed','unsigned']:
+        elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar','signed','unsigned','inout logic']:
             logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
             logs.pStack()
             
@@ -121,6 +121,13 @@ class module_class:
             WasWid=0
         if Dir=='wire':
             Dir=WasDir
+
+        if isinstance(Wid,str):
+            try:
+                Wid = eval(Wid)
+            except:
+                Wid = Wid
+
 
         if (Wid==0):
             self.nets[Name] =  Dir,WasWid 
@@ -206,6 +213,8 @@ class module_class:
     def dump(self,Fname = '?'):
         if Fname == '?':
             Fname = '%s.dump'%self.Module
+        elif (len(Fname)>0)and(Fname[0]=='+'):
+            Fname = '%s.%s.dump'%(self.Module,Fname[1:])
         File = open(Fname,'w') 
         
         File.write('module %s\n'%(self.Module))
@@ -256,7 +265,7 @@ class module_class:
             Dir,Wid = self.nets[Sig]
             if is_external_dir(Dir):
                 IOS.append((Sig,Dir,Wid))
-            else:
+            elif reasonableSig(Sig):
                 NOIOS.append((Sig,Dir,Wid))
         if (IOS==[])and(IFS==[]):
             Fout.write(';\n')
@@ -381,7 +390,7 @@ class module_class:
                 Src1 = clean_br(pr_expr(Src))
                 if len(Src1)>120:
                     Src2 = Src1.split('$$$')
-                    Src1 = Src2.join('\n    ')
+                    Src1 = '\n    '.join(Src2)
                 else:
                     Src1 = Src1.replace('$$$','')
                 Src2 = splitLong(Src1)
@@ -397,6 +406,9 @@ class module_class:
         for Generate in self.generates:
             Fout.write('generate\n')
             if Generate[0] in ['for','if','ifelse']:
+                Statement = pr_stmt(Generate,'    ',True)
+                Fout.write('%s\n'%Statement)
+            elif Generate[0] in ['named_begin']:
                 Statement = pr_stmt(Generate,'    ',True)
                 Fout.write('%s\n'%Statement)
             else:
@@ -543,9 +555,11 @@ class module_class:
                         self.nets[Name]=(Dir,(H,L))
                     elif (type(WW)is tuple)and(len(WW)==3):
                         if WW[0] not in ['packed','double']:
-                            logs.log_error('definition of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
+                            logs.log_error('definition(0) of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
+                    elif isinstance(WW,int):
+                        self.nets[Name]=(Dir,WW)
                     else:
-                        logs.log_error('definition of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
+                        logs.log_error('definition(1) of net %s dir=%s and wid "%s" is wrong  (%s)'%(Name,Dir,WW,Net))
                 return
             if Net[0]=='subbus':
                 Name = Net[1]
@@ -564,8 +578,15 @@ class module_class:
                     if WW[0]=='double':
                         return
                     (H,L)=WW
-                    H = max(H,Ind1)
-                    L = min(L,Ind0)
+                    # print('>>>',H,Ind1,L,Ind0)
+                    try:
+                        H = max(H,Ind1)
+                    except:
+                        H = Ind1
+                    try:
+                        L = min(L,Ind0)
+                    except:
+                        L = Ind0
                     self.nets[Name]=(Dir,(H,L))
                 else:
                     logs.log_warning('check net def got width  name=%s dir=%s ww=%s'%(Name,Dir,WW))
@@ -762,6 +783,11 @@ class module_class:
                 return eval('%s%s%s'%(A,Item[0],B))
             if Item[0] in ['dig']:
                 return self.compute_int(Item[2])
+        if type(Item)is tuple:
+            if Item[0] in ['-','+','*','/']:
+                A = self.compute_int(Item[1])
+                B = self.compute_int(Item[2])
+                return eval('%s%s%s'%(A,Item[0],B))
     
         logs.log_err('compute_int failed on "%s" %s'%(str(Item),self.Module),False)
         return 0
@@ -939,7 +965,7 @@ class instance_class:
             Fout.write(';\n')
             return
         Fout.write('(')
-        Pref=' '
+        Pref='    '
         res=[]
         if 0 in self.conns:
             Pins = self.conns.keys()
@@ -1219,15 +1245,17 @@ def pr_stmt(List,Pref='',Begin=False):
                 Src = pr_expr(Vars[1])
                 return 'assign %s = %s;\n'%(Dst,Src)
 
-        if List[0]=='reg':
-            if (type(List[1])is str):
+        if List[0] in ['logic','reg']:
+            if (type(List[1])is str)or(List[1]==0):
+                if List[1] in ['0',0]:
+                    return '%s %s;'%(List[0],List[2])
                 if List[1][0]=='width':
                     Hi = pr_expr(List[1][1])
                     Lo = pr_expr(List[1][2])
-                    return 'reg [%s:%s] %s;'%(Hi,Lo,List[1])
+                    return '%s [%s:%s] %s;'%(List[0],Hi,Lo,List[1])
                 return 'ewrror'
             else:
-                return 'reg %s;'%List[1]
+                return 'reg %s;'%str(List[1])
                 
     if List in ['ILIA_FALSE','ILIA_TRUE']: return List                
     if type(List)is str:
@@ -1438,6 +1466,19 @@ def pr_expr(What):
     if What[0]=='return':
         Str = 'return  %s'%(pr_expr(What[1]))
         return Str
+
+    if What[0]=='aggregate':
+        X = pr_expr(What[2])
+        Str = '%s%s'%(What[1],X)
+        return Str
+    if What[0]=='DOWNTO':
+        Hi = pr_expr(What[1])
+        Lo = pr_expr(What[2])
+        return '[%s:%s]'%(Hi,Lo)
+    if What[0]=='multing':
+        Hi = pr_expr(What[1])
+        Lo = pr_expr(What[2])
+        return '(%s * %s)'%(Hi,Lo)
 
     if (type(What)is list):
         if simply_computable(What):
@@ -1715,3 +1756,8 @@ def pr_net_def(Wid,Dir,Name):
     else:
         return '%s %s %s'%(pr_dir(Dir),pr_wid(Wid),pr_expr(Name))
     logs.log_error('pr_net_def got "%s" "%s" "%s"'%(Wid,Dir,Name))
+
+
+def reasonableSig(Net):
+    if Net in [0,1,'0','1']: return False
+    return True
