@@ -1248,14 +1248,13 @@ def pr_stmt(List,Pref='',Begin=False):
         if List[0] in ['logic','reg']:
             if (type(List[1])is str)or(List[1]==0):
                 if List[1] in ['0',0]:
-                    return '%s %s;'%(List[0],List[2])
-                if List[1][0]=='width':
-                    Hi = pr_expr(List[1][1])
-                    Lo = pr_expr(List[1][2])
-                    return '%s [%s:%s] %s;'%(List[0],Hi,Lo,List[1])
-                return 'ewrror'
+                    return '    %s %s;\n'%(List[0],List[2])
+            elif List[1][0]=='width':
+                Hi = pr_expr(List[1][1])
+                Lo = pr_expr(List[1][2])
+                return '    %s [%s:%s] %s;\n'%(List[0],Hi,Lo,List[2])
             else:
-                return 'reg %s;'%str(List[1])
+                return '    reg %s;\n'%str(List[1])
                 
     if List in ['ILIA_FALSE','ILIA_TRUE']: return List                
     if type(List)is str:
@@ -1319,6 +1318,7 @@ def pr_strength(Strength):
 def pr_dir(Dir):
     if Dir=='signed wire': return 'wire signed'
     if Dir=='signed': return 'wire signed'
+    Dir = Dir.replace('logic','wire')
     return Dir
 
 def pr_wid(Wid):
@@ -1367,6 +1367,8 @@ def pr_expr(What):
         return LL.join('.')
     if What[0]=='edge':
         return '%s %s'%(What[1],pr_expr(What[2]))
+    if What[0] in ['negedge','posedge']:
+        return '%s %s'%(What[0],pr_expr(What[1]))
     if What[0]=='subbit':
         return '%s[%s]'%(pr_expr(What[1]),pr_expr(What[2]))
     if What[0]=='sub_slice':
@@ -1396,7 +1398,7 @@ def pr_expr(What):
             return "'h%s"%(Hex)
 
         if len(What)==2: return What[1]
-        return "%s'h%s"%(What[1],Hex)
+        return "%s'h%s"%(4*What[1],Hex)
     if What[0]=='dig':
         if What[2][0]=="'": What[2] = What[2][1:]
         return "%s'd%s"%(What[1],What[2])
