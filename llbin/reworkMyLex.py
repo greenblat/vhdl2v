@@ -49,9 +49,7 @@ def doWindow():
         if (wrds0[0]=='END')and(wrds3[0]=='Semicolon'):
             if wrds1[0] in ('ENTITY ARCHITECTURE PROCESS CASE GENERATE PACKAGE COMPONENT').split():
                 WINDOW.pop(2)
-                if wrds1[0]=='ARCHITECTURE':
-                    WINDOW.pop(1)
-                if wrds1[0]=='ENTITY':
+                if wrds1[0] in ['ARCHITECTURE','ENTITY','COMPONENT','GENERATE']:
                     WINDOW.pop(1)
         elif (wrds0[1]=='Identifier')and(wrds1[0]=='Colon')and(wrds2[0]=='ENTITY')and(wrds3[1]=='DOTTED'):
             WINDOW.pop(2)
@@ -64,7 +62,7 @@ def doWindow():
     if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
 
     if len(WINDOW)>=3:
-        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon')and(wrds1[0] not in ['PROCESS','CASE','IF','RECORD','COMPONENT','LOOP','GENERATE']):
+        if (wrds0[0]=='END')and(wrds2[0]=='Semicolon'):
             WINDOW.pop(1)
         elif (wrds0[0]=='COMPONENT')and(wrds1[1]=='Identifier')and(wrds2[0]=='IS'):
             WINDOW.pop(2)
@@ -78,7 +76,8 @@ def doWindow():
     if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
     if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
             WINDOW.pop(1)
-
+    if (wrds0[0]=='GENERATE')and(wrds1[0]=='BEGIN_'):
+            WINDOW.pop(1)
 
 
 

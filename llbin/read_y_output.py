@@ -13,7 +13,7 @@ Reduces = {}
 
 def main():
     YaccFname = sys.argv[1]
-    os.system('yacc -dv %s'%YaccFname)
+    os.system('yacc  -dv %s'%YaccFname)
     File = open('y.output')
     work1(File)
     work2()
@@ -61,30 +61,33 @@ def report():
     Fout.close()
 
 def work1(File):
+    lnum = 0
     while 1:
         line=File.readline()
+        lnum += 1
         if len(line)==0:
             return
         wrds = string.split(line)
         if len(wrds)>0:
-            use_line(wrds)
+            use_line(wrds,lnum)
 
 
-def use_line(wrds):
+def use_line(wrds,lnum):
     if (db.state=='idle'):
         if wrds[0]=='Grammar':
             db.state='rules'
-        elif wrds[0]=='state':
+    elif (db.state=='seek_state'):
+        if wrds[0] in ['State','state']:
             db.state='state'
             db.inState=wrds[1]
             States[wrds[1]]=[]
     elif (db.state=='rules'):
-        if (wrds[0]=='state'):
+        if (wrds[0] in ['State','state']):
             db.state='state'
             db.inState=wrds[1]
             States[wrds[1]]=[]
         elif (wrds[0]=='Terminals,'):
-            db.state='idle'
+            db.state='seek_state'
         elif is_num(wrds[0]):
             if wrds[1][-1]==':':
                 db.Rule=wrds[1][:-1]
@@ -102,12 +105,14 @@ def use_line(wrds):
 
 
     elif (db.state=='state'):
-        if (wrds[0]=='state'):
+        if (wrds[0] in ['State','state']):
             db.state='state'
             db.inState=wrds[1]
             States[wrds[1]]=[]
         elif is_num(wrds[0]):
             db.rule=wrds[:]
+        elif len(wrds)== 1:
+            pass
         elif wrds[1]=='shift,':
             Tok = clean_token(wrds[0])
             State = wrds[-1]

@@ -77,7 +77,7 @@ def readlexfile(Flexname):
         elif (len(wrds)>4):
             wrds2 = wrds[-3:]
             wrds1 = wrds[:-3]
-            wrd0=string.join(wrds1,' ')
+            wrd0=' '.string.join(wrds1)
             Lex.append(tuple([wrd0]+wrds2))
 
 def run_machine():
@@ -125,7 +125,7 @@ def step_machine(state):
                 else:
                     addToDb(Name,Id,Stack[-len(Wrds):])
                 NST=state
-                while Wrds!=[]:
+                while (Wrds!=[])and(Stack!=[]):
                     TT,KK,Lnum1,Pos1,NST = Stack.pop(-1)
                     Wrds.pop(0)
                 Lex.insert(0,(Name,Name,Id,-1))

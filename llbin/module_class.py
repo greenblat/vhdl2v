@@ -3,7 +3,7 @@ import logs
 import traceback
 import matches
 
-MathOps = ('** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&').split()
+MathOps = ('/ ** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&').split()
 class module_class:
     def __init__(self,Name,Kind='module'):
         self.Module=Name
@@ -36,6 +36,11 @@ class module_class:
         self.deepInstNames = False
         self.inventedNets = 0
         self.extTypes = []
+
+        self.vsignals = []
+        self.valwayses=[]
+
+
     def cleanZeroNets(self):
         return
     def create_stat_types(self):
@@ -351,6 +356,12 @@ class module_class:
             res=verilog_conns(Conns)
             Fout.write('%s %s(%s);\n'%(Type,Name,logs.join(res,',')))
 
+        if self.vsignals!=[]:
+            for Sig in self.vsignals[0]:
+                Fout.write('VSIGNAL %s\n' % str(Sig))
+        if self.valwayses!=[]:
+            for Sig in self.valwayses[0]:
+                Fout.write('VALWAYS %s\n' % str(Sig))
         for Name in self.mems:
             (Dir,Wid1,Wid2)=self.mems[Name]
             Fout.write('%s %s %s %s;\n'%(pr_dir(Dir),pr_wid(Wid1),pr_expr(Name),pr_wid(Wid2)))
@@ -378,9 +389,9 @@ class module_class:
                     Fout.write('typedef enum logic [%s:%s] { %s } %s\n'%(Wid[0],Wid[1],Str,Name))
                 elif List[0]=='singles':
                     Str = logs.join(List[1],', ')
-                    Fout.write('typedef enum logic { %s } %s\n'%(Str,Name))
+                    Fout.write('typedef enum logic { %s } %s;\n'%(Str,Name))
                 else:
-                    logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
+                    logs.log_err('!!!typedef enum { %s } %s;\n'%(self.enums[Name],Name))
             else:
                 logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
         for (Dst,Src,Strength,Dly) in self.hard_assigns:
@@ -842,7 +853,7 @@ def dump_always(Always,Fout):
     logs.log_err('dump_always %d %s'%(len(Always),Always))
     return ''
 
-OPS =  ['~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
+OPS =  ['/','~^','^','=','>=','=>','*','/','<','>','+','-','~','!','&','&&','<=','>>','>>>','<<','||','==','!=','|']
 KEYWORDS = ('sub_slice sub_slicebit taskcall functioncall named_begin unsigned if for ifelse edge posedge negedge list case default double_sub').split()
 
 def support_set(Sig,Bussed=True):
@@ -968,7 +979,7 @@ class instance_class:
         Pref='    '
         res=[]
         if 0 in self.conns:
-            Pins = self.conns.keys()
+            Pins = list(self.conns.keys())
             Pins.sort()
             for Pin in Pins:
                 Expr = pr_expr(self.conns[Pin])
@@ -1265,7 +1276,15 @@ def pr_stmt(List,Pref='',Begin=False):
 
     if type(List)is tuple:
         return pr_stmt(list(List))
-    logs.log_err('untreated for prnt stmt %s %s'%(Pref,List))
+
+    if (type(List)is list)and(len(List)>1):
+        Str = '%sbegin\n' %  Pref
+        for Item in List:
+            Str += pr_stmt(Item,Pref+'    ',True)
+        return '%s%send\n'%(Str,Pref)
+        
+
+    logs.log_err('module_class: untreated for prnt stmt %s %s'%(Pref,List))
     traceback.print_stack(None,None,logs.Flog)
     return '[error %s]'%str(List)
 
@@ -1354,6 +1373,8 @@ def pr_expr(What):
     if type(What) is float:
         return str(What)
     if type(What)is str:
+        if What == "'0'": return "1'b0"
+        if What == "'1'": return "1'b1"
         return pr_replace(What)
     if not What:
         return ''
@@ -1419,6 +1440,9 @@ def pr_expr(What):
         res1 = '(%s)'%logs.join(res,' %s '%What[0])
         return res1
 
+    if (type(What[0]) is str) and (What[0] in vhdlOps):
+        List = [vhdlOps[What[0]]] + list(What[1:])
+        return pr_expr(List)
 
     if What[0]in ['?','question']:
         Cond = pr_expr(What[1])
@@ -1482,6 +1506,13 @@ def pr_expr(What):
         Lo = pr_expr(What[2])
         return '(%s * %s)'%(Hi,Lo)
 
+    if What[0] == 'func':
+        return '%s[%s]' % (What[1],pr_expr(What[2]))
+    if What[0]=='expr':
+        return pr_expr(What[1:])
+    if What[0]=='default':
+        return pr_expr(What[1])
+
     if (type(What)is list):
         if simply_computable(What):
             X,_ = simply_computable(What)
@@ -1495,6 +1526,7 @@ def pr_expr(What):
     logs.pStack('pr_expr %s'%(str(What)))
     return str('error '+str(What))
 
+vhdlOps = {'Slash':'/','Star':'*','EQSym' : '=='}
 
 def splitLong(res1):
     if len(res1)<120: return res1

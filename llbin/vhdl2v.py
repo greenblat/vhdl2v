@@ -18,8 +18,8 @@ import logs
 #import helpers
 #import matches as mtc
 import db1
-import reworks
-import always
+import db2
+#import always
 
 info = logs.log_info
 
@@ -49,22 +49,24 @@ def main():
         return
     info('starting vhdl2v by IliaG 4.sep.2018 on %s'%Fname)
     dbscan = db1.load_parsed(RunDir)
-    logs.log_info('TELL dbscan arch=%d ent=%d pckg=%d scn=%d'%(len(dbscan.Architectures.keys()), len(dbscan.Entities.keys()), len(dbscan.Packages.keys()), len(dbscan.Scanned)))
-
-    reworks.run(dbscan)
+    logs.log_info('TELL dbscan modules=%d arch=%d ent=%d pckg=%d scn=%d'%(len(dbscan.Modules.keys()),len(dbscan.Architectures.keys()), len(dbscan.Entities.keys()), len(dbscan.Packages.keys()), len(dbscan.Scanned)))
+    Fout = open('round0.v','w')
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
-        Mod.dump('+aa')
-    always.run(dbscan)
+        Mod.dump_verilog(Fout)
+    Fout.close()
+    db2.run(dbscan)
+    print('REWORKS %s' % str(list(dbscan.Modules.keys())))
+    for Module in dbscan.Modules:
+        Mod = dbscan.Modules[Module]
+#    always.run(dbscan)
     Fout = open('modules.v','w')
     for Pack in dbscan.Packages:
         Mod = dbscan.Packages[Pack]
         Mod.dump_verilog(Fout)
-        Mod.dump()
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
         Mod.dump_verilog(Fout)
-        Mod.dump()
     Fout.close()
 
 

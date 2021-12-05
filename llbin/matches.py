@@ -39,8 +39,8 @@ def recordIt(Seq,Pos):
         DB[Seq] = (1,Pos)
     else:
         Was,Waspos = DB[Seq]
-        if Waspos!=Pos:
-            logs.log_info('strange pos of "%s" was %d now %d'%(Seq,Waspos,Pos))
+#        if Waspos!=Pos:
+#            logs.log_info('strange pos of "%s" was %d now %d'%(Seq,Waspos,Pos))
         DB[Seq] = (Was+1,Pos)
 
 def reportIt():
