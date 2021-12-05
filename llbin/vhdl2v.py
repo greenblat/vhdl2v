@@ -59,6 +59,7 @@ def main():
     print('REWORKS %s' % str(list(dbscan.Modules.keys())))
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
+        Mod.dump('%s.dd' % Module)
 #    always.run(dbscan)
     Fout = open('modules.v','w')
     for Pack in dbscan.Packages:

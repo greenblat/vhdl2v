@@ -33,14 +33,14 @@ def dealVsignals(dbscan):
             elif Item[0] == 'signal':
                 for Sig in Item[1]:
                     if Item[2] == 'std_logic':
-                        Mod.add_sig(Sig,'wire',0)
+                        Mod.add_sig(Sig,'logic',0)
                         Vsignals.pop(ind)
                     elif Item[2] == 'std_logic_vector':
                         Wid = getWid(Item[3])
-                        Mod.add_sig(Sig,'wire',Wid)
+                        Mod.add_sig(Sig,'logic',Wid)
                         Vsignals.pop(ind)
                     elif Item[2]  in ['integer','unsigned','natural']:
-                        Mod.add_sig(Sig,'wire',(31,0))
+                        Mod.add_sig(Sig,'logic',(31,0))
                         Vsignals.pop(ind)
                     else:
                         Mod.add_sig(Sig,Item[2],0)
@@ -104,11 +104,15 @@ def dealValwayses(dbscan):
 
 
 def seqCode(Code,Mod):
+    if Code[0] in ['ifelse','if']:
+        return seqCode([Code],Mod)
     Res = []
     for Item in Code:
         if type(Item) is list:
             if len(Item) == 1:
-                Res.append(seqCode(Item[0]))
+                Res.append(seqCode(Item[0],Mod))
+            elif (Item[0] == 'if'):
+                return seqCode(tuple(Item),Mod)
             else:
                 Mid = []
                 for X in Item:
@@ -137,6 +141,12 @@ def seqCode(Code,Mod):
                 Res.append(('elsif',Cond,Less,Else))
             else:
                 Res.append(('else',Cond,More))
+        elif Item[0] == 'for':
+            Var = Item[1]
+            Init = seq_expr(Item[2])
+            End = seq_expr(Item[3])
+            Body = seqCode(Item[4],Mod)
+            Res.append(('for',('=',Var,Init),('<',Var,End),('=',Var,('+',Var,1)),Body))
         elif Item[0] == 'case':
             Cond = seq_expr(Item[1])
             Stmnt = ('case',Cond,[])
@@ -146,6 +156,12 @@ def seqCode(Code,Mod):
                 if len(Case)==3:
                     Seq = seqCode(Case[2],Mod)
                     Stmnt[2].append((Label,Seq))
+                elif Case[0] == 'default':
+                    if Case[1] == []:
+                        Seq = ''
+                    else:
+                        Seq = seqCode(Case[1],Mod)
+                    Stmnt[2].append(('default',Seq))
                 else:
                     Stmnt[2].append((Label,'null'))
             Res.append(Stmnt)

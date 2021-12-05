@@ -496,6 +496,32 @@ def get_list__(Item):
         No = get_list(Vars[2])
         return [('ifelse',Cond,Yes,No)]
 
+    Vars = matches.matches(Item,'IF !Expression THEN !pstatements !elsifs END Semicolon')
+    if Vars:
+        Cond = get_list(Vars[0])
+        Yes = get_list(Vars[1])
+        No = get_list(Vars[2])
+        No = list(No[0])
+        No[0] = 'if'
+        No = tuple(No)
+        return [('ifelse',Cond,Yes,[No])]
+
+
+    Vars = matches.matches(Item,'IF !Expression THEN !pstatements !elsifs ELSE !pstatements END Semicolon')
+    if Vars:
+        Cond = get_list(Vars[0])
+        Yes = get_list(Vars[1])
+        No = get_list(Vars[2])
+        No = list(No[0])
+        No[0] = 'ifelse'
+        No2 = get_list(Vars[3])
+        No = No + [No2]
+        No = tuple(No)
+        Result = ('ifelse',Cond,Yes,No)
+        return [Result]
+
+
+
     Vars = matches.matches(Item,'ELSIF !Expression THEN !pstatements')
     if Vars:
         Cond = get_list(Vars[0])

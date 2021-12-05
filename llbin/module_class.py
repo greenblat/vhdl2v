@@ -88,8 +88,9 @@ class module_class:
         elif (len(ww)==2)and(ww[0] in ['input','output'])and(ww[1] in self.extTypes):
             self.nets[Name]=(Dir,Wid)
         elif Dir not in ['input wire','output wire','wire','reg','input','output','output reg','integer','inout','tri0','tri1','output reg signed','wire signed','signed wire','reg signed','output signed','input logic','output logic','logic','genvar','signed','unsigned','inout logic']:
-            logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
-            logs.pStack()
+            if Dir not in self.enums:
+                logs.log_error('add_sig got of %s dir=%s'%(Name,Dir))
+                logs.pStack()
             
         if Dir=='genvar':
             self.genvars[Name]=True
@@ -339,6 +340,25 @@ class module_class:
             PP = pr_net_def(List,'','')
             Fout.write('typedef %s %s;\n'%(PP,Name))
 #            Fout.write('typedef struct packed { %s } %s\n'%(PP,Name))
+        for Name in self.enums:
+            List = self.enums[Name]
+            if type(List)is tuple:
+                if List[0]=='width_singles':
+                    Wid = List[1]
+                    Str = logs.join(List[2],', ')
+                    Fout.write('typedef enum logic [%s:%s] { %s } %s\n'%(Wid[0],Wid[1],Str,Name))
+                elif List[0]=='singles':
+                    Str = logs.join(List[1],', ')
+                    Bits = len(bin(len(List[1])))
+                    if len(List[1])<3:
+                        Fout.write('typedef enum logic { %s } %s;\n'%(Str,Name))
+                    else:
+                        Bits = len(bin(len(List[1])))-2
+                        Fout.write('typedef enum logic [%d:0] { %s } %s;\n'%(Bits-1,Str,Name))
+                else:
+                    logs.log_err('!!!typedef enum { %s } %s;\n'%(self.enums[Name],Name))
+            else:
+                logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
         for (Name,Dir,Wid) in NOIOS:
             if Wid==Dir:
                 Fout.write('%s %s;\n'%(pr_dir(Dir),pr_expr(Name)))
@@ -380,20 +400,6 @@ class module_class:
             Fout.write('modport %s ( %s );\n'%(Name,Big))
         for Name in self.genvars:
             Fout.write('genvar %s;\n'%(Name))
-        for Name in self.enums:
-            List = self.enums[Name]
-            if type(List)is tuple:
-                if List[0]=='width_singles':
-                    Wid = List[1]
-                    Str = logs.join(List[2],', ')
-                    Fout.write('typedef enum logic [%s:%s] { %s } %s\n'%(Wid[0],Wid[1],Str,Name))
-                elif List[0]=='singles':
-                    Str = logs.join(List[1],', ')
-                    Fout.write('typedef enum logic { %s } %s;\n'%(Str,Name))
-                else:
-                    logs.log_err('!!!typedef enum { %s } %s;\n'%(self.enums[Name],Name))
-            else:
-                logs.log_err('!!!typedef enum { %s } %s\n'%(self.enums[Name],Name))
         for (Dst,Src,Strength,Dly) in self.hard_assigns:
             if (Dst=='//'):
                 Fout.write('// %s\n'%Src)
@@ -673,7 +679,7 @@ class module_class:
                         pass
                     elif Net not in Wires:
                         Wires[Net]=(0,0)
-                elif isinstance(Net,(tuplr,list)):
+                elif isinstance(Net,(tuple,list)):
                     if Net[0] in ['subbit','subbus']:
                         Name = Net[1]
                         if Net[0]=='subbit':
@@ -1036,6 +1042,7 @@ def pr_timing(List):
 
 def pr_stmt(List,Pref='',Begin=False):
     if List==None: return '%s;'%Pref
+    if List=='': return '%s;'%Pref
     if type(List)is tuple:
         return pr_stmt(list(List),Pref,Begin)
     if (type(List)is int):
@@ -1169,7 +1176,7 @@ def pr_stmt(List,Pref='',Begin=False):
             X = pr_stmt(List[4],Pref+'    ',True)
             A1 = pr_assign_list(List[1])
             A2 = pr_assign_list(List[3])
-            Str = '%sfor(%s;%s;%s)begin\n'%(Pref,A1,Cond,A2)
+            Str = '%sfor(int %s;%s;%s)begin\n'%(Pref,A1,Cond,A2)
             Str += X
             Str += '%send\n'%(Pref)
             return Str
@@ -1337,7 +1344,8 @@ def pr_strength(Strength):
 def pr_dir(Dir):
     if Dir=='signed wire': return 'wire signed'
     if Dir=='signed': return 'wire signed'
-    Dir = Dir.replace('logic','wire')
+    if Dir=='output': return 'output logic'
+#    Dir = Dir.replace('logic','wire')
     return Dir
 
 def pr_wid(Wid):
@@ -1391,6 +1399,8 @@ def pr_expr(What):
     if What[0] in ['negedge','posedge']:
         return '%s %s'%(What[0],pr_expr(What[1]))
     if What[0]=='subbit':
+        if What[1] == 'rising_edge': 
+            return '$rising_edge(%s)' % pr_expr(What[2])            
         return '%s[%s]'%(pr_expr(What[1]),pr_expr(What[2]))
     if What[0]=='sub_slice':
         return '%s[%s][%s:%s]'%(pr_expr(What[1]),pr_expr(What[2]),pr_expr(What[3][0]),pr_expr(What[3][1]))

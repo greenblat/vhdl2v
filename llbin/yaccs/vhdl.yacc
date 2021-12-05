@@ -125,6 +125,8 @@
 %left       DoubleStar
 %right      ABS NOT
 
+%nonassoc ELSE
+%nonassoc ELSIF
 
 
 %%
@@ -218,7 +220,7 @@ BusDef : LeftParen Expression Dir Expression RightParen ;
 
 
 pstatements : pstatement pstatements | pstatement ;
-pstatement : if | elsif | sassign | forloop | case  | funcall;
+pstatement : if | sassign | forloop | case  | funcall;
 
 funcall : Identifier LeftParen Identifier Comma List RightParen Semicolon ;
 
@@ -248,11 +250,15 @@ sassign :
     | Identifier LeftParen Expression RightParen  LESym Expression Semicolon 
     | Identifier LeftParen Expression DOWNTO Expression RightParen  LESym Expression Semicolon 
     ;
+
+// elsif : IF Expression THEN pstatements ELSIF Expression THEN pstatements END Semicolon ;
+
 if : 
-    IF Expression THEN pstatements END Semicolon 
+      IF Expression THEN pstatements END Semicolon 
     | IF Expression THEN pstatements ELSE pstatements END Semicolon 
     | IF Expression THEN pstatements elsifs ELSE pstatements END Semicolon 
-    | IF Expression THEN pstatements elsifs END Semicolon ;
+    | IF Expression THEN pstatements elsifs END Semicolon
+    ;
 
 elsifs : elsifs elsif | elsif
 
