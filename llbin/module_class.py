@@ -4,6 +4,7 @@ import traceback
 import matches
 
 MathOps = ('/ ** ~| ~& ~^ !^ + - * / ^ % & | && || ! ~ < > << >> >>> == <= >= != ~&').split()
+RESERVED = ['int']
 class module_class:
     def __init__(self,Name,Kind='module'):
         self.Module=Name
@@ -75,6 +76,7 @@ class module_class:
     def add_net(self,Name,Dir,Wid):
         self.add_sig(Name,Dir,Wid)
     def add_sig(self,Name,Dir,Wid):
+        if Name in RESERVED: Name = 'x_'+Name
         if (type(Name)is str)and('[' in Name):
             Name = Name[:Name.index('[')]
         if Name=='':
@@ -209,6 +211,8 @@ class module_class:
         Obj = self.insts[Inst]
         Sig1 = busify_x(Sig)
         self.check_net_def(Sig1)
+        if Pin in RESERVED:
+            Pin = 'x_' + Pin
         Obj.add_conn(Pin,Sig1)
     def add_conns(self,Inst,List):
         for (Pin,Sig) in List:
@@ -1305,15 +1309,20 @@ def pr_assign_list(List):
     res = []
     if List[0]=='list':
         return pr_assign_list(List[1:])
-    if List[0]=='=':
+    if List[0] in ['<=','=']:
         Dst = pr_expr(List[1])
         Src = clean_br(pr_expr(List[2]))
         return '%s=%s'%(Dst,Src)
         
-    for Item in List:
-        Res = pr_assign_list(Item)
-        res.append(Res)
-    return logs.join(res,', ')
+    if type(List) is tuple:
+        return List
+    if type(List) is list:
+        for Item in List:
+            Res = pr_assign_list(Item)
+            res.append(Res)
+        return logs.join(res,', ')
+    logs.log_error('pr_assign_list got "%s" ' % str(List))
+    return str(List)
 
 def clean_br(Txt):
     Txt = str(Txt)
@@ -1400,6 +1409,9 @@ def pr_expr(What):
         return '%s %s'%(What[0],pr_expr(What[1]))
     if What[0]=='subbit':
         if What[1] == 'rising_edge': 
+            noEdges = logs.getVar('noEdges',False) 
+            if noEdges:
+                return '1'             
             return '$rising_edge(%s)' % pr_expr(What[2])            
         return '%s[%s]'%(pr_expr(What[1]),pr_expr(What[2]))
     if What[0]=='sub_slice':
@@ -1469,8 +1481,11 @@ def pr_expr(What):
         return '%s ? %s :\n     %s'%(Cond,Yes,No)
 
     if What[0]=='width':
-        W = What[1]
-        return '[%s:%s]'%(pr_expr(W[0]),pr_expr(W[1]))
+        try:
+            W = What[1]
+            return '[%s:%s]'%(pr_expr(W[0]),pr_expr(W[1]))
+        except:
+            return 'width'
     if What[0]=='curly':
         if What[1]=='repeat':
             return '{ %s { %s }}'%(pr_expr(What[2]),pr_expr(What[3]))
@@ -1490,6 +1505,8 @@ def pr_expr(What):
             return What[1]
         Expr  = pr_expr(What[2])
         return '%s(%s)'%(What[1],Expr)
+    if (What[0] == 'function')and(What[1] == 'edge'):
+        return "1"
     if What[0] in ['functioncall','funccall']:
         if len(What[2])==1:
             Str = '%s(%s)'%(What[1],pr_expr(What[2][0]))
@@ -1721,6 +1738,8 @@ def verilog_conns_list(Conns):
             Expr=''
         else:
             Expr = pr_expr(Sig)
+            if Expr in ['1',1]: Expr = "1'b1"
+            elif Expr in [0,'0']: Expr = "1'b0"
         res.append('.%s(%s)'%(pr_expr(Pin),Expr))
     return res
 
@@ -1736,6 +1755,8 @@ def verilog_conns_dict(Conns):
                 Expr=''
             else:
                 Expr = pr_expr(Sig)
+                if Expr in ['1',1]: Expr = "1'b1"
+                elif Expr in [0,'0']: Expr = "1'b0"
             res.append('.%s(%s)'%(pr_expr(Pin),Expr))
     return res
 

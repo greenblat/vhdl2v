@@ -165,10 +165,10 @@ def startsWith(Long,Short):
     return  Long.index(Short)==0 
 
 VVars={}
-def getVar(Var):
+def getVar(Var,Default=0):
     if Var in VVars: return VVars[Var]
-    VVars[Var]=0
-    return 0
+    VVars[Var]=Default
+    return Default
 
 def setVar(Var,Value):
     VVars[Var]=Value
@@ -213,4 +213,8 @@ def pStack(Txt=''):
     Flog.write('\n\n\n')
 
 def join(List,What):
-    return What.join(List)
+    try:
+        return What.join(List)
+    except:
+        log_error('JOIN failed on "%s"' % str(List))
+        return str(List)

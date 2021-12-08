@@ -75,6 +75,11 @@ def scan1(Key):
         for Port  in LL:
             if (len(Port)==4)and(Port[0] == 'port'):
                 addPin(Cell,Port[1],Port[2][0],Port[3])
+            elif (len(Port)==6)and(Port[0] == 'port')and(Port[3] == 'std_logic_vector'):
+                addBusPin(Cell,Port)
+                
+            else:
+                logs.log_error('ENTITY PORT %d %s' % (len(Port),Port))
 
         return
 
@@ -84,7 +89,10 @@ def scan1(Key):
         Gens = get_list(Vars[1])
         Ports  = get_list(Vars[2])
         for Port in Ports:
-            addPin(Cell,Port[1],Port[2][0],Port[3])
+            if (len(Port)==6)and(Port[0] == 'port')and(Port[3] == 'std_logic_vector'):
+                addBusPin(Cell,Port)
+            else:
+                addPin(Cell,Port[1],Port[2][0],Port[3])
         for Gene in Gens:
             if len(Gene)==3: 
                 addParam(Cell,Gene[1],Gene[2],1)
@@ -94,10 +102,10 @@ def scan1(Key):
 
     Vars = matches.matches(List,'ARCHITECTURE ? OF ? IS BEGIN_ !statements END Semicolon')
     if Vars:
-        Name = Vars[0][0]
-        Kind = Vars[1][0]
+        Name = Vars[1][0]
         Body = get_list(db.db[Vars[2]])
-        db.Scanned.append(('architecture',Name,Kind,[],Body))
+        db.Scanned.append(('architecture',Name,[],Body))
+        addArchitecture(Name,[],Body)
         return
 
 
@@ -108,9 +116,6 @@ def scan1(Key):
         Body = get_list(db.db[Vars[3]])
         db.Scanned.append(('architecture',Name,Decls,Body))
         addArchitecture(Name,Decls,Body)
-        return
-    elif List[0][0] == 'ARCHITECTURE':
-        logs.log_error('ARCH ERROR %s' % str(List))
         return
 
 
@@ -169,6 +174,7 @@ def dumpScanned(db,Pref=''):
                     File.write('item3 : %s\n'%(XX))
             else:
                 File.write('xitem3 : %s\n'%(nicePrint(Item[3])))
+
         elif Kind=='entity':
             Lens = map(len,Item)
             Str = '%s %s lens = %s'%(Kind,Name,Lens)
@@ -270,6 +276,12 @@ def get_list__(Item):
         return Comp + More
 
     Vars = matches.matches(Item,'!pstatement !pstatements')
+    if Vars:
+        Comp = get_list(Vars[0])
+        More = get_list(Vars[1])
+        return Comp + More
+
+    Vars = matches.matches(Item,'!generate_item !generates')
     if Vars:
         Comp = get_list(Vars[0])
         More = get_list(Vars[1])
@@ -386,6 +398,7 @@ def get_list__(Item):
     if Vars:
         LLL = get_list(Vars[0])
         return LLL
+
     Vars = matches.matches(Item,'!formal_generic_element Semicolon !formal_generic_list')
     if Vars:
         One = get_list(Vars[0])
@@ -394,6 +407,12 @@ def get_list__(Item):
     Vars = matches.matches(Item,'?  Colon ?')
     if Vars:
         return [('generic',Vars[0][0],Vars[1][0])]
+
+    Vars = matches.matches(Item,'?  Colon IN ?')
+    if Vars:
+        return [('generic',Vars[0][0],Vars[1][0])]
+
+
 
     Vars = matches.matches(Item,'PORT LeftParen !formal_port_list RightParen Semicolon')
     if Vars:
@@ -415,25 +434,34 @@ def get_list__(Item):
     Vars = matches.matches(Item,'? Colon ? VarAsgn ?')
     if Vars:
         return [('generic_map',Vars[0][0],Vars[1][0],Vars[2][0])]
-    Vars = matches.matches(Item,'SIGNAL !List Colon ? LeftParen !Expression DOWNTO !Expression RightParen Semicolon')
-    if Vars:
-        List = get_list(Vars[0])
-        Kind = Vars[1][0]
-        Hi = get_list(Vars[2])
-        Lo = get_list(Vars[3])
-        return [ ('signal',List,Kind,Hi,Lo)]
+
+#    Vars = matches.matches(Item,'SIGNAL !List Colon ? LeftParen !Expression DOWNTO !Expression RightParen Semicolon')
+#    if Vars:
+#        List = get_list(Vars[0])
+#        Kind = Vars[1][0]
+#        Hi = xeval(get_list(Vars[2]))
+#        Lo = xeval(get_list(Vars[3]))
+#        return [ ('signal',List,Kind,Hi,Lo)]
 
     Vars = matches.matches(Item,'SIGNAL !List Colon ? Semicolon')
     if Vars:
         List = get_list(Vars[0])
         return [('signal',List,Vars[1][0])]
 
+    Vars = matches.matches(Item,'SIGNAL !List Colon ? VarAsgn !Expression Semicolon')
+    if Vars:
+        List = get_list(Vars[0])
+        Expr = get_list(Vars[2])
+        return [('signal',List,Vars[1][0]),('assign',List[0],Expr)]
+
     Vars = matches.matches(Item,'LeftParen !Expression !Dir !Expression RightParen')
     if Vars:
         L1 = get_list(Vars[0])
         Dir = get_list(Vars[1])
         L2 = get_list(Vars[2])
-        return [('busdef',L1[0],L2[0])]
+        Hi = xeval(L1[0])
+        Lo = xeval(L2[0])
+        return [(Hi,Lo)]
 
 
     Vars = matches.matches(Item,'SIGNAL !List Colon ? RANGE !Expression TO !Expression Semicolon')
@@ -448,12 +476,22 @@ def get_list__(Item):
         List = get_list(Vars[0])
         Kind = Vars[1][0]
         HiLo = get_list(Vars[2])
-        return [('signal',List,Vars[1][0],HiLo)]
+
+        return [('signal',List,Vars[1][0],HiLo[0])]
+
 
     Vars = matches.matches(Item,'VARIABLE !List Colon ? Semicolon')
     if Vars:
         List = get_list(Vars[0])
         return [('variable',List,Vars[1][0])]
+
+    Vars = matches.matches(Item,'VARIABLE !List Colon ? !BusDef Semicolon')
+    if Vars:
+        List = get_list(Vars[0])
+        Wid  = get_list(Vars[2])
+        return [('variable',List,Vars[1][0],Wid)]
+
+
 
     Vars = matches.matches(Item,'!List Comma ?')
     if Vars:
@@ -495,6 +533,12 @@ def get_list__(Item):
         Yes = get_list(Vars[1])
         No = get_list(Vars[2])
         return [('ifelse',Cond,Yes,No)]
+
+    Vars = matches.matches(Item,'!elsifs !elsif')
+    if Vars:
+        Part0 = get_list(Vars[0])
+        Part1 = get_list(Vars[1])
+        return Part0 + Part1
 
     Vars = matches.matches(Item,'IF !Expression THEN !pstatements !elsifs END Semicolon')
     if Vars:
@@ -571,6 +615,13 @@ def get_list__(Item):
     Vars = matches.matches(Item,'? Apostrophe event')
     if Vars:
         return [('event',Vars[0][0])]
+    Vars = matches.matches(Item,'? Apostrophe RANGE')
+    if Vars:
+        return [('range',Vars[0][0])]
+
+    Vars = matches.matches(Item,'LeftParen ? RANGE Box RightParen')
+    if Vars:
+        return [('box',Vars[0][0])]
 
     Vars = matches.matches(Item,'!Expression WHEN !Expression ELSE !Expression')
     if Vars:
@@ -626,6 +677,11 @@ def get_list__(Item):
         Expr = get_list(Vars[2])
         return [('constant',Vars[0][0],Expr)]
 
+    Vars = matches.matches(Item,'CONSTANT ? Colon ? !BusDef VarAsgn !Expression Semicolon')
+    if Vars:
+        Expr = get_list(Vars[3])
+        return [('constant',Vars[0][0],Expr)]
+
     Vars = matches.matches(Item,'FOR ? IN !Expression TO !Expression LOOP !pstatement END Semicolon')
     if Vars:
         St = get_list(Vars[1])
@@ -633,8 +689,58 @@ def get_list__(Item):
         Stats = get_list(Vars[3])
         return [('for',Vars[0][0],St,En,Stats)]
 
+    Vars = matches.matches(Item,'TYPE ? IS ARRAY !BusDef OF ? !BusDef Semicolon')
+    if Vars:
+        St = get_list(Vars[1])
+        En = get_list(Vars[3])
+        return [('doublearray',Vars[0][0],St,En)]
+
+    Vars = matches.matches(Item,'TYPE ? IS ARRAY !Nat OF ? !BusDef Semicolon')
+    if Vars:
+        En = get_list(Vars[3])
+        return [('doublearray',Vars[0][0],'integer',En)]
+
+#    Vars = matches.matches(Item,'TYPE ? IS ARRAY !BusDef OF ? LeftParen !Expression RightParen Semicolon')
+#    if Vars:
+#        St = get_list(Vars[1])
+#        En = get_list(Vars[3])
+#        return [('type',Vars[0][0],St,Vars[2][0],En)]
+
+
+    Vars = matches.matches(Item,'? Colon FOR ? IN !Expression TO !Expression GENERATE !generates END Semicolon')
+    if Vars:
+        St = get_list(Vars[1])
+        En = get_list(Vars[2])
+        List = get_list(Vars[3])
+        return [('generate_for',Vars[0][0],St,En,List)]
+
+    Vars = matches.matches(Item,'? Colon IF !Expression GENERATE !generates END Semicolon')
+    if Vars:
+        Expr = get_list(Vars[1])
+        List = get_list(Vars[2])
+        return [('generate_if',Vars[0][0],Expr,List)]
+
+    Vars = matches.matches(Item,'ASSERT !Expression REPORT ? ? Semicolon')
+    if Vars:
+        Expr = get_list(Vars[0])
+        return [('assertion',Expr,Vars[1][0],Vars[2][0])]
+
+    Vars = matches.matches(Item,'ASSERT !Expression REPORT ? ? ? Semicolon')
+    if Vars:
+        Expr = get_list(Vars[0])
+        return [('assertion',Expr,Vars[1][0],Vars[2][0],Vars[3][0])]
+
+    Vars = matches.matches(Item,'? LeftParen ? Comma !List RightParen Semicolon')
+    if Vars:
+        List = get_list(Vars[2])
+        return [('funccall',Vars[0][0],[ Vars[1][0]] + List)]
+
+
+
+
     logs.log_error('GETLIST %s' % str(Item))
-    return ['error']
+    return ['error %s' % str(Item)]
+
 
 
 
@@ -721,17 +827,46 @@ def startModule(Cell):
         Mod = db.Modules[Cell]
     return Mod
 
-def addPin(Cell,Sig,Dir,Kind):
-    Mod = startModule(Cell)
+def pinDir(Dir):
+    if type(Dir) is tuple: return pinDir(Dir[0])
+    if Dir in ['input','output']: return Dir
     if Dir == 'IN': Dir = 'input'
     elif Dir == 'OUT': Dir = 'output'
-    else: Dir = 'inout'
+    elif Dir == 'INOUT': Dir = 'inout'
+    else: 
+        logs.log_error('Direction from vhdl "%s"' %str(Dir))
+        Dir = 'inout'
+    return Dir
+
+def addBusPin(Cell,Port):
+    Mod = startModule(Cell)
+    if (len(Port)==6)and(Port[0] == 'port')and(Port[3] == 'std_logic_vector'):
+        Pin = Port[1]
+        Dir = pinDir(Port[2][0]) 
+        Hi = xeval(Port[4][0])
+        Lo = xeval(Port[5][0])
+        Mod.add_sig(Pin,Dir,(Hi,Lo))
+        return
+    logs.log_error('bad bus %s pin "%s"' % (Cell,Port))
+                
+def xeval(Ind):
+    if type(Ind) is int: return Ind
+    if type(Ind) is str:
+        try:
+            return eval(Ind)
+        except:
+            return Ind
+    return Ind
+
+def addPin(Cell,Sig,Dir,Kind):
+    Mod = startModule(Cell)
+    Dir = pinDir(Dir)
 
     if Kind == 'std_logic': Wid = 0
     else:
-        print('KIND %s Wid = 0' % (Kind))
+        logs.log_error('KIND %s %s %s Wid = 0' % (Cell,Sig,Kind))
         Wid = 0
-    Mod.nets[Sig] = (Dir,Wid)
+    Mod.add_sig(Sig,Dir,Wid)
 
 def add_inst(Inst,Type,Conns):
     if not Current:

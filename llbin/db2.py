@@ -6,6 +6,7 @@ import module_class
 import matches
 
 
+Types = {}
 def run(dbscan):
     dealVsignals(dbscan)
     dealValwayses(dbscan)
@@ -14,6 +15,7 @@ def dealVsignals(dbscan):
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
         ind = 0
+        if Mod.vsignals == []: return
         Vsignals = Mod.vsignals[0]
         while ind<len(Vsignals):
             Item = Vsignals[ind]
@@ -24,38 +26,52 @@ def dealVsignals(dbscan):
                 Vsignals.pop(ind)
             elif Item[0] == 'type':
                 Name = Item[1]
+                print('ENUMS',Item[2])
                 Mod.enums[Name] = ('singles',Item[2])
+                Vsignals.pop(ind)
+            elif Item[0] == 'doublearray':
+                AA = getWid(Item[2])
+                BB = getWid(Item[3])
+                Types[Item[1]] = ('double',BB,AA)
                 Vsignals.pop(ind)
 
             elif Item[0] == 'constant':
                 Mod.localparams[Item[1]] = Item[2]
                 Vsignals.pop(ind)
             elif Item[0] == 'signal':
+                Vsignals.pop(ind)
                 for Sig in Item[1]:
                     if Item[2] == 'std_logic':
                         Mod.add_sig(Sig,'logic',0)
-                        Vsignals.pop(ind)
                     elif Item[2] == 'std_logic_vector':
                         Wid = getWid(Item[3])
                         Mod.add_sig(Sig,'logic',Wid)
-                        Vsignals.pop(ind)
                     elif Item[2]  in ['integer','unsigned','natural']:
                         Mod.add_sig(Sig,'logic',(31,0))
-                        Vsignals.pop(ind)
+                    elif Item[2] in Types:
+                        Def = Types[Item[2]]
+                        if Def[0] == 'double':
+                            Mod.add_sig(Sig,'logic',('packed',AA,BB))
                     else:
                         Mod.add_sig(Sig,Item[2],0)
-                        Vsignals.pop(ind)
+            elif Item[0] == 'assign':
+                Vsignals.pop(ind)
+                logs.log_warning('INIT ASSIGN not used %s' % str(Item))
             else:
                 logs.log_error('VSIGNALS %s' % str(Item))
                 ind += 1
             
 def getWid(Item):
     if (type(Item) is list)and(len(Item)==1):
-        Bus = Item[0]
-        if (type(Bus) is tuple) and (Bus[0] == 'busdef'):
-            Hi = seq_expr(Bus[1])
-            Lo = seq_expr(Bus[2])
-            return (Hi,Lo)
+        return getWid(Item[0])
+    Bus = Item
+    if (type(Bus) is tuple) and (Bus[0] == 'busdef'):
+        Hi = seq_expr(Bus[1])
+        Lo = seq_expr(Bus[2])
+        return (Hi,Lo)
+    if (type(Bus) is tuple) and (len(Bus) == 2):
+        return Bus
+
     logs.log_error('getWid got "%s"' % str(Item))
     return 0
 
@@ -63,6 +79,7 @@ def dealValwayses(dbscan):
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
         ind = 0
+        if Mod.valwayses == []: return
         Valwayses = Mod.valwayses[0]
         while ind<len(Valwayses):
             Item = Valwayses[ind]
@@ -96,13 +113,46 @@ def dealValwayses(dbscan):
                 Mod.hard_assigns.append((Dst,Src,'',''))
             elif Item[0] == 'always':
                 Valwayses.pop(ind)
-                Code = seqCode(Item[2],Mod)
-                Mod.alwayses.append((Item[1],Code,'always'))
+                Code = seqCode(Item[-1],Mod)
+                if len(Item)==5:
+                    Renames = dealWithMores(Mod,Item[1],Item[3])
+                    Code = renameDeep(Code,Renames)
+                    Mod.alwayses.append((Item[2],Code,'always'))
+                else:
+                    Mod.alwayses.append((Item[1],Code,'always'))
             else:
                 logs.log_error('dealValwayses %s' % str(Item))
                 Valwayses.pop(ind)
 
-
+def dealWithMores(Mod,Proc,List):
+    Renames = {}
+    for Item in List:
+        if Item[0] == 'variable':
+            if Item[2] == 'std_logic':
+                for Sig in Item[1]:
+                    Mod.add_sig(Proc+'_'+Sig,'logic',0)
+                    Renames[Sig] = Proc+'_'+Sig
+            elif Item[2] in Mod.enums:
+                for Sig in Item[1]:
+                    Mod.add_sig(Proc+'_'+Sig,Item[2],0)
+                    Renames[Sig] = Proc+'_'+Sig
+            else:
+                logs.log_error('deal with variables of type "%s" ' % str(Item[2]))
+        elif Item[0] == 'type':
+            Name = Item[1]
+            if Name in Mod.enums:
+                Was = Mod.enums[Name]
+                print('ENUM2',Was,Item[2])
+                for X in Item[2]:
+                    if X not in Was[1]:
+                        Was[1].append(X)
+                Mod.enums[Name] = ('singles',Was[1])
+            else:
+                Mod.enums[Name] = ('singles',Item[2])
+        else:
+            logs.log_error('deal with moreList of kind "%s" ' % str(Item))
+    return Renames
+        
 def seqCode(Code,Mod):
     if Code[0] in ['ifelse','if']:
         return seqCode([Code],Mod)
@@ -132,7 +182,7 @@ def seqCode(Code,Mod):
             Cond = seq_expr(Item[1])
             Yes = seqCode(Item[2],Mod)
             No = seqCode(Item[3],Mod)
-            return ('ifelse',Cond,Yes,No)
+            Res.append( ('ifelse',Cond,Yes,No))
         elif Item[0] == 'elsif':
             Cond = seq_expr(Item[1])
             More = seqCode(Item[2],Mod)
@@ -167,7 +217,6 @@ def seqCode(Code,Mod):
             Res.append(Stmnt)
         else:
             logs.log_error('seqCode got "%s"' % str(Item))
-        
     return ['list',Res]
 
 def splitElsif(More):
@@ -180,14 +229,18 @@ def splitElsif(More):
     return Bef,Aft
 
 
-
-OPS = {'Star':'*','Slash':'/','+':'+','-':'-','*':'*','/':'/','AND':'&','OR':'|','EQSym':'==','/=':'!=','Ampersand':'&'}
+RESERVED = ['int']
+OPS = {'<=':'<=','**':'**','GTSym':'>','GESym':'>=','XOR':'^','Star':'*','Slash':'/','+':'+','-':'-','*':'*','/':'/','AND':'&','OR':'|','EQSym':'==','/=':'!=','Ampersand':'&'}
 def seq_expr(Code):
     if type(Code) is str: 
         if (Code[0] == "'") and(Code[-1]=="'"):
             return Code[1:-1]
         if (Code[0] == '"') and(Code[-1]=='"'):
             return "%d'b%s" % (len(Code)-2,Code[1:-1])
+        if (Code[0] == 'x' ) and (Code[-1] == '"'):
+            Code = "'h"+Code[2:-1]
+        if Code in RESERVED:
+            return 'x_'+Code
         return Code
     if Code==[]: return 0;
     if (type(Code) is list)and(len(Code)==1):
@@ -200,6 +253,8 @@ def seq_expr(Code):
             Yes = seq_expr(Code[2])
             No = seq_expr(Code[3])
             return ('question',Cond,Yes,No)
+        elif Code[0]=='!':
+            return ('!',seq_expr(Code[1]))
         elif Code[0]=='expr':
             return seq_expr(Code[1:])
         elif Code[0] in OPS:
@@ -213,6 +268,11 @@ def seq_expr(Code):
             return ('subbus',Bus,(Hi,Lo))
         elif Code[0] in ['subbit','func']:
             Bus = Code[1]
+            if Bus == 'std_logic_vector':
+                return seq_expr(Code[2])
+            if Bus in ['to_integer','to_unsigned']:
+                return seq_expr(Code[2][0])
+
             Ind = seq_expr(Code[2])
             return ('subbit',Bus,Ind)
         elif Code[0]=='default':
@@ -220,3 +280,26 @@ def seq_expr(Code):
             
     logs.log_error('seq_expr got "%s" %s' % (str(Code),type(Code)))
     return Code
+
+def renameDeep(Code,Renames):
+    if type(Code) is str:
+        if Code in Renames:
+            return Renames[Code]
+        return Code
+
+    if type(Code) is int: return Code
+
+    if type(Code) is list:
+        for ind,Item in enumerate(Code):
+            Item0 = renameDeep(Item,Renames)
+            Code[ind] = Item0
+        return Code
+    if type(Code) is tuple:
+        List = list(Code)
+        New = renameDeep(List,Renames)
+        return tuple(New)
+        
+    logs.log_error('renameDeep got %s' % (type(Code)))
+    return Code
+
+

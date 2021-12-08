@@ -8,11 +8,7 @@ import matches
 def run(dbscan):
     for Module in dbscan.Modules:
         Mod = dbscan.Modules[Module]
-        parameters(Mod)
-        expressions(Mod)
         always(Mod)
-        removeTypdefs(Mod)
-        connections(Mod)
 
 
 def connections(Mod):
@@ -25,8 +21,69 @@ def connections(Mod):
                     Obj.conns[Pin[1]] = Obj.conns[Pin]
                     Obj.conns.pop(Pin)
 
-
 def always(Mod):
+    for Ind,Alw in enumerate(Mod.alwayses):
+        if len(Alw[0]) > 2:
+            Mod.alwayses[Ind] = '*',Alw[1],Alw[2]
+        elif len(Alw[0]) == 1:
+            Clk = Alw[0][0]
+            Sig,Edge = scan_for_edges(Alw[1])
+            if Sig != Clk:
+                logs.log_error('ILIA scan back=%s clk=%s edge=%s' % (Sig,Clk,Edge))
+            Alw = [(Edge,Sig)],Alw[1],Alw[2]
+            Mod.alwayses[Ind] = Alw
+        elif len(Alw[0]) == 2:
+            Clk,Edge = scan_for_edges(Alw[1])
+            if (Clk == 'no')and(Edge == 'no'):
+                Mod.alwayses[Ind] = '*',Alw[1],Alw[2]
+            else:
+                Sense = Alw[0][:]
+                Sense.remove(Clk)
+                Rst = Sense[0]
+                if Alw[1][0] == 'ifelse':
+                    Cond = Alw[1][1]
+                    if (Cond[0] == '==')and(Cond[1]==Rst):
+                        if Cond[2] in [0,'0']:
+                            Rst = ('negedge',Rst)
+                        elif Cond[2] in [1,'1']:
+                            Rst = ('posedge',Rst)
+    
+                Alw = ['list',(Edge,Clk),Rst],Alw[1],Alw[2]
+                Mod.alwayses[Ind] = Alw
+            
+def scan_for_edges(Code):
+    if Code[0] == '=':
+        return 'no','no'
+    if Code[0] == 'list':
+        Clk,Edge =  scan_for_edges(Code[1][0])
+        return Clk,Edge
+    if Code[0] == 'if':
+        Clk,Edge =  scan_for_edges(Code[1])
+        return Clk,Edge
+    if Code[0] == 'ifelse':
+        Clk,Edge = scan_for_edges(Code[3])
+        return Clk,Edge
+    if (Code[0] == 'subbit')and (Code[1] == 'rising_edge'):
+        return Code[2],'posedge'
+    if (Code[0] == '&')and (Code[1][0] == 'function') and (Code[1][1] == 'edge'):
+        if Code[2][0] == '==':
+            Clk = Code[2][1]
+            if Code[2][2] in ['0',0]: return Clk,'negedge'
+            if Code[2][2] in ['1',1]: return Clk,'posedge'
+    if (Code[0] == '&')and (Code[2][0] == 'function') and (Code[2][1] == 'edge'):
+        if Code[1][0] == '==':
+            Clk = Code[1][1]
+            if Code[1][2] in ['0',0]: return Clk,'negedge'
+            if Code[1][2] in ['1',1]: return Clk,'posedge'
+
+
+    logs.log_error('scan_for_edges %s' % str(Code))
+    return 'no','no'
+
+
+
+
+def was_always(Mod):
     for Ind,Alw in enumerate(Mod.alwayses):
         LL = Alw[1]
         if LL[0]=='ifelse':
