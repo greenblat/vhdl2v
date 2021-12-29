@@ -293,6 +293,11 @@ def get_list__(Item):
         More = get_list(Vars[1])
         return Comp + More
 
+    Vars = matches.matches(Item,'!Simple Bar !Simples')
+    if Vars:
+        Comp = get_list(Vars[0])
+        More = get_list(Vars[1])
+        return Comp + More
 
     Vars = matches.matches(Item,'!whens !one_when')
     if Vars:
@@ -327,11 +332,38 @@ def get_list__(Item):
         Port = get_list(Vars[0])
         return Port + Ports
 
+    Vars = matches.matches(Item,'!List Colon !Mode ?')
+    if Vars:
+        Mode = db.db[Vars[1]][0]
+        LL = get_list(Vars[0])
+        Res = []
+        for Sig in LL:
+            Res.append(('port',LL,Mode,Vars[2][0]))
+        return  Res
+
     Vars = matches.matches(Item,'? Colon !Mode ?')
     if Vars:
         Mode = db.db[Vars[1]][0]
-        return [('port',Vars[0][0],Mode,Vars[2][0])]
+        return  [('port',Mode,Vars[0][0])]
+
+    Vars = matches.matches(Item,'!List Colon !Mode ? !BusDef')
+    if Vars:
+        Mode = db.db[Vars[1]]
+        HiLo = get_list(Vars[3])
+        LL = get_list(Vars[0])
+        Res = []
+        for Sig in LL:
+            Res.append(('port',Sig,Mode,Vars[2][0],HiLo[0][0],HiLo[0][1]))
+        return  Res
         
+    Vars = matches.matches(Item,'? Colon !Mode ? LeftParen !Expression DOWNTO !Expression RightParen')
+    if Vars:
+        Mode = db.db[Vars[1]]
+        Hi = get_list(Vars[3])
+        Lo = get_list(Vars[4])
+        return [('port',Vars[0][0],Mode,Vars[2][0],Hi,Lo)]
+
+
     Vars = matches.matches(Item,'? Colon ? GENERIC MAP LeftParen !maps RightParen PORT MAP LeftParen !maps RightParen Semicolon')
     if Vars:
         Inst = Vars[0][0]
@@ -404,6 +436,13 @@ def get_list__(Item):
         One = get_list(Vars[0])
         More = get_list(Vars[1])
         return One + More
+
+    Vars = matches.matches(Item,'?  Colon ? !BusDef VarAsgn !Simple')
+    if Vars:
+        Bus = get_list(Vars[2])
+        Val = get_list(Vars[3])
+        return [('generic',Vars[0][0],Bus,Val)]
+
     Vars = matches.matches(Item,'?  Colon ?')
     if Vars:
         return [('generic',Vars[0][0],Vars[1][0])]
@@ -420,12 +459,6 @@ def get_list__(Item):
     Vars = matches.matches(Item,'!formal_port_element Semicolon !formal_port_list')
     if Vars:
         return get_list(Vars[0])+get_list(Vars[1])
-    Vars = matches.matches(Item,'? Colon !Mode ? LeftParen !Expression DOWNTO !Expression RightParen')
-    if Vars:
-        Mode = db.db[Vars[1]]
-        Hi = get_list(Vars[3])
-        Lo = get_list(Vars[4])
-        return [('port',Vars[0][0],Mode,Vars[2][0],Hi,Lo)]
     Vars = matches.matches(Item,'!Expression Minus !Expression')
     if Vars:
         Exp0 = get_list(Vars[0])
@@ -434,14 +467,6 @@ def get_list__(Item):
     Vars = matches.matches(Item,'? Colon ? VarAsgn ?')
     if Vars:
         return [('generic_map',Vars[0][0],Vars[1][0],Vars[2][0])]
-
-#    Vars = matches.matches(Item,'SIGNAL !List Colon ? LeftParen !Expression DOWNTO !Expression RightParen Semicolon')
-#    if Vars:
-#        List = get_list(Vars[0])
-#        Kind = Vars[1][0]
-#        Hi = xeval(get_list(Vars[2]))
-#        Lo = xeval(get_list(Vars[3]))
-#        return [ ('signal',List,Kind,Hi,Lo)]
 
     Vars = matches.matches(Item,'SIGNAL !List Colon ? Semicolon')
     if Vars:
@@ -454,6 +479,13 @@ def get_list__(Item):
         Expr = get_list(Vars[2])
         return [('signal',List,Vars[1][0]),('assign',List[0],Expr)]
 
+    Vars = matches.matches(Item,'SIGNAL !List Colon ? !BusDef VarAsgn !Expression Semicolon')
+    if Vars:
+        List = get_list(Vars[0])
+        HiLo = get_list(Vars[2])
+        Expr = get_list(Vars[3])
+        return [('signal',List,Vars[1][0],HiLo[0]),('assign',List[0],Expr)]  # ILIA
+    
     Vars = matches.matches(Item,'LeftParen !Expression !Dir !Expression RightParen')
     if Vars:
         L1 = get_list(Vars[0])
@@ -635,6 +667,10 @@ def get_list__(Item):
         AA = get_list(Vars[0])
         return [('default',AA)]
 
+    Vars = matches.matches(Item,'LeftParen OTHERS Arrow ? RightParen')
+    if Vars:
+        return [Vars[0][0]]
+
     Vars = matches.matches(Item,'? LeftParen !Expression DOWNTO !Expression RightParen')
     if Vars:
         Hi = get_list(Vars[1])
@@ -645,6 +681,17 @@ def get_list__(Item):
     if Vars:
         AA = get_list(Vars[1])
         return [('type',Vars[0][0],AA)]
+
+    Vars = matches.matches(Item,'TYPE ? IS ARRAY !BusDef OF ? !BusDef Semicolon')
+    if Vars:
+        St = get_list(Vars[1])
+        En = get_list(Vars[3])
+        return [('doublearray',Vars[0][0],St,En)]
+
+    Vars = matches.matches(Item,'TYPE ? IS ARRAY !Nat OF ? !BusDef Semicolon')
+    if Vars:
+        En = get_list(Vars[3])
+        return [('doublearray',Vars[0][0],'integer',En)]
 
     Vars = matches.matches(Item,'CASE !Expression IS !whens END Semicolon')
     if Vars:
@@ -688,23 +735,6 @@ def get_list__(Item):
         En = get_list(Vars[2])
         Stats = get_list(Vars[3])
         return [('for',Vars[0][0],St,En,Stats)]
-
-    Vars = matches.matches(Item,'TYPE ? IS ARRAY !BusDef OF ? !BusDef Semicolon')
-    if Vars:
-        St = get_list(Vars[1])
-        En = get_list(Vars[3])
-        return [('doublearray',Vars[0][0],St,En)]
-
-    Vars = matches.matches(Item,'TYPE ? IS ARRAY !Nat OF ? !BusDef Semicolon')
-    if Vars:
-        En = get_list(Vars[3])
-        return [('doublearray',Vars[0][0],'integer',En)]
-
-#    Vars = matches.matches(Item,'TYPE ? IS ARRAY !BusDef OF ? LeftParen !Expression RightParen Semicolon')
-#    if Vars:
-#        St = get_list(Vars[1])
-#        En = get_list(Vars[3])
-#        return [('type',Vars[0][0],St,Vars[2][0],En)]
 
 
     Vars = matches.matches(Item,'? Colon FOR ? IN !Expression TO !Expression GENERATE !generates END Semicolon')
@@ -843,8 +873,8 @@ def addBusPin(Cell,Port):
     if (len(Port)==6)and(Port[0] == 'port')and(Port[3] == 'std_logic_vector'):
         Pin = Port[1]
         Dir = pinDir(Port[2][0]) 
-        Hi = xeval(Port[4][0])
-        Lo = xeval(Port[5][0])
+        Hi = xeval(Port[4])
+        Lo = xeval(Port[5])
         Mod.add_sig(Pin,Dir,(Hi,Lo))
         return
     logs.log_error('bad bus %s pin "%s"' % (Cell,Port))
@@ -861,11 +891,14 @@ def xeval(Ind):
 def addPin(Cell,Sig,Dir,Kind):
     Mod = startModule(Cell)
     Dir = pinDir(Dir)
+    if (type(Sig) is list) and (len(Sig) == 1):
+        Sig = Sig[0]
 
     if Kind == 'std_logic': Wid = 0
     else:
-        logs.log_error('KIND %s %s %s Wid = 0' % (Cell,Sig,Kind))
+#        logs.log_error('KIND %s sig=%s kind=%s Wid = 0' % (Cell,Sig,Kind))
         Wid = 0
+        Dir = Dir + ' ' + Kind
     Mod.add_sig(Sig,Dir,Wid)
 
 def add_inst(Inst,Type,Conns):

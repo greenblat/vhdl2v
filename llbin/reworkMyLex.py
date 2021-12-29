@@ -74,10 +74,6 @@ def doWindow():
     wrds3 = []
     if len(WINDOW)>=3: wrds2 =  (WINDOW[2]).split()
     if len(WINDOW)>3: wrds3 =  (WINDOW[3]).split()
-    if (wrds0[0]=='END')and(wrds1[0]=='ENTITY'):
-            WINDOW.pop(1)
-    if (wrds0[0]=='GENERATE')and(wrds1[0]=='BEGIN_'):
-            WINDOW.pop(1)
 
 
 

@@ -21,6 +21,7 @@ import db1
 import db2
 import always
 import simplify
+import patternsLex
 
 info = logs.log_info
 
@@ -44,6 +45,7 @@ def main():
         cleanVhdl.run(Fname)
         vhdllexer.run_lexer('cleaned.vhd','lex.out')
         reworkMyLex.run('lex.out','lex2.out')
+        patternsLex.run('lex2.out','lex3.out')
         vyaccer2.run_yacc(False,'lex2.out','.',Fname)
     if Fname=='':
         logs.log_error('fname not given as parameter')
@@ -67,15 +69,12 @@ def main():
         Mod = dbscan.Packages[Pack]
         Mod.dump_verilog(Fout)
     for Module in dbscan.Modules:
-        Fbef = open('%s.bef' % Module,'w')
         Fmod = open('%s.v' % Module,'w')
         Mod = dbscan.Modules[Module]
-        Mod.dump_verilog(Fbef)
         Context = []
         simplify.simplifyModule(Mod,Context)
         Mod.dump_verilog(Fmod)
         Fmod.close()
-        Fbef.close()
     Fout.close()
 
 

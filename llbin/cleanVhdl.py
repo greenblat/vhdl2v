@@ -18,6 +18,8 @@ def run(Fname):
         wrds = line.split()
         if wrds==[]:
             fwrite(Fout,line)
+        elif wrds[0] in ['library','use','LIBRARY','USE']:
+            fwrite(Fout,'\n')
         elif state=='idle':
             fwrite(Fout,line)
             if '--' in wrds[0]:

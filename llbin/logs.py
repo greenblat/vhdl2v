@@ -102,9 +102,7 @@ def log_ending(Who):
 
 params={}
 def get_param(Param,Default):
-    print('>>>> %s %s'%(Param,params))
     if Param in params:
-        print('>>>>> %s'%params[Param])
         return params[Param][0]
     return Default
 

@@ -76,6 +76,8 @@ def scan_for_edges(Code):
             if Code[1][2] in ['0',0]: return Clk,'negedge'
             if Code[1][2] in ['1',1]: return Clk,'posedge'
 
+    if Code[0] == 'case':
+        return 'no','no'
 
     logs.log_error('scan_for_edges %s' % str(Code))
     return 'no','no'

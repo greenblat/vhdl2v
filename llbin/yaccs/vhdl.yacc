@@ -139,14 +139,28 @@ library_clause : LIBRARY Identifier Semicolon | USE DOTTED Semicolon ;
 package : PACKAGE Identifier IS package_items END Semicolon 
           | PACKAGE BODY Identifier IS package_items END Semicolon ;
 package_items : package_item package_items | package_item ;
-package_item : signal | typedef | subtypedef | funcdef | proceduredef  ;
+package_item : signal | typedef | funcdef | proceduredef | funcbody  ;
 
-subtypedef : SUBTYPE Identifier IS Identifier BusDef Semicolon ;
 funcdef : FUNCTION Identifier LeftParen Args RightParen RETURN Identifier Semicolon ;
+
+funcvars : funcvar funcvars | funcvar ;
+
+funcvar : constant | pdefine ;
+
+funcbody : FUNCTION Identifier LeftParen Args RightParen RETURN Identifier IS 
+     funcvars BEGIN_ pstatements END Semicolon 
+    | FUNCTION Identifier LeftParen Args RightParen RETURN Identifier IS BEGIN_ pstatements END Semicolon 
+    ;
+
+
 proceduredef : PROCEDURE Identifier LeftParen Args RightParen Semicolon ;
 
 Args : Arg Semicolon Args | Arg ;
-Arg : Identifier Colon Identifier | SIGNAL Identifier Colon Mode Identifier  ;
+Arg : 
+      List Colon Identifier 
+    | List Colon IN Identifier 
+    | SIGNAL Identifier Colon Mode Identifier 
+    ;
 
 entity_declaration : 
     ENTITY Identifier IS generic_clause port_clause END Semicolon 
@@ -163,21 +177,23 @@ formal_generic_list : formal_generic_element Semicolon formal_generic_list | for
 formal_generic_element : 
       Identifier Colon  Identifier   
     | Identifier Colon  IN Identifier   
-    | Identifier Colon  Identifier  VarAsgn DecimalInt 
-    | Identifier Colon  Identifier  VarAsgn literal 
-    | Identifier Colon  Identifier  VarAsgn BitStringLit ;
-
+    | Identifier Colon  Identifier  VarAsgn Simple 
+    | Identifier Colon  Identifier  BusDef 
+    | Identifier Colon  Identifier  BusDef VarAsgn Simple
+    ;
 
 
 formal_port_list : formal_port_element Semicolon formal_port_list | formal_port_element ;
 formal_port_element : 
-    Identifier Colon Mode  Identifier LeftParen Expression DOWNTO Expression RightParen  
-    | Identifier Colon Mode  Identifier  ;
+      List Colon Mode  Identifier  BusDef 
+    | SIGNAL Identifier Colon Mode  Identifier  BusDef 
+    | SIGNAL Identifier Colon Mode  Identifier  
+    | List Colon Mode  Identifier  ;
 
 Mode : IN | OUT | INOUT ;
 
 components : item components | item ;
-item : component | signal | typedef | assertion  ;
+item : component | signal | typedef | funcdef | assertion | funcbody  | variable ;
 statements : statement statements | statement ;
 statement : instance | assign | process | generate | assertion | funcall ;
 
@@ -188,11 +204,23 @@ assertion : ASSERT Expression REPORT StringLit Identifier Identifier Semicolon ;
 
 
 typedef :     
-    TYPE  Identifier IS ARRAY Nat  OF Identifier BusDef Semicolon  
+      TYPE  Identifier IS ARRAY Nat  OF Identifier BusDef Semicolon  
+    | TYPE  Identifier IS record   
+    | TYPE  Identifier IS range
+    | TYPE  Identifier IS Identifier BusDef  Semicolon
     | TYPE  Identifier IS ARRAY BusDef OF Identifier Semicolon  
     | TYPE  Identifier IS ARRAY BusDef OF Identifier BusDef  Semicolon  
     | TYPE  Identifier IS ARRAY BusDef OF Identifier LeftParen Expression RightParen Semicolon  
     | TYPE  Identifier IS LeftParen List RightParen Semicolon  ;
+
+
+record : RECORD records END Semicolon ;
+records : record_item records | record_item ;
+record_item : 
+    List Colon Identifier Semicolon
+    | List Colon Identifier BusDef Semicolon
+    ;
+
 
 
 assign : 
@@ -201,16 +229,22 @@ assign :
     | Identifier LESym Expression Semicolon ;
 
 process : 
-    Identifier Colon PROCESS LeftParen List RightParen pdefines BEGIN_ pstatements END Semicolon 
+      PROCESS LeftParen List RightParen pdefines BEGIN_ pstatements END Semicolon 
+    | PROCESS pdefines BEGIN_ pstatements END Semicolon 
+    | PROCESS LeftParen List RightParen BEGIN_ pstatements END Semicolon
+    | Identifier Colon PROCESS LeftParen List RightParen pdefines BEGIN_ pstatements END Semicolon 
     | Identifier Colon PROCESS LeftParen List RightParen BEGIN_ pstatements END Semicolon 
-    | PROCESS LeftParen List RightParen pdefines BEGIN_ pstatements END Semicolon 
-    | PROCESS LeftParen List RightParen BEGIN_ pstatements END Semicolon ;
+    ;
 
 
 pdefines : pdefine pdefines | pdefine ;
 pdefine :
     TYPE  Identifier IS LeftParen List RightParen Semicolon 
-    | VARIABLE List Colon Identifier  Semicolon
+    | variable
+    ;
+variable :
+     VARIABLE List Colon Identifier  Semicolon
+    | VARIABLE List Colon Identifier  VarAsgn Expression Semicolon
     | VARIABLE List Colon BusDef  Semicolon
     | VARIABLE List Colon Identifier BusDef  Semicolon
     ;
@@ -220,7 +254,12 @@ BusDef : LeftParen Expression Dir Expression RightParen ;
 
 
 pstatements : pstatement pstatements | pstatement ;
-pstatement : if | sassign | forloop | case  | funcall;
+pstatement : if | sassign | forloop | case  | funcall | return | wait | exit;
+
+wait : WAIT Semicolon ;
+exit : EXIT Semicolon ;
+
+return : RETURN Expression Semicolon ;
 
 funcall : Identifier LeftParen Identifier Comma List RightParen Semicolon ;
 
@@ -230,15 +269,18 @@ generate : Identifier Colon IF Expression GENERATE generates END Semicolon
 generates : generate_item generates | generate_item ;
 generate_item :  instance | sassign  | process | generate;
 
-forloop : FOR Identifier IN Expression TO Expression LOOP pstatement END Semicolon ;
+forloop : 
+      FOR Identifier IN Expression TO Expression LOOP pstatement END Semicolon 
+    | FOR Identifier IN Expression LOOP pstatement END Semicolon ;
 
 case : CASE Expression IS whens END Semicolon ;
 
 whens : whens one_when | one_when ;
 
+Simples : Simple Bar Simples | Simple ;
+
 one_when : 
-      WHEN BitStringLit Arrow pstatements 
-    | WHEN Identifier Arrow pstatements 
+      WHEN Simples Arrow pstatements 
     | WHEN OTHERS Arrow pstatements ; 
     | WHEN OTHERS Arrow NULL_ Semicolon ; 
 
@@ -246,8 +288,10 @@ one_when :
 
 sassign : 
     Identifier LESym Expression Semicolon 
+    | DOTTED LESym Expression Semicolon 
     | Identifier VarAsgn Expression Semicolon 
     | Identifier LeftParen Expression RightParen  LESym Expression Semicolon 
+    | Identifier LeftParen Expression RightParen  VarAsgn Expression Semicolon 
     | Identifier LeftParen Expression DOWNTO Expression RightParen  LESym Expression Semicolon 
     ;
 
@@ -258,6 +302,7 @@ if :
     | IF Expression THEN pstatements ELSE pstatements END Semicolon 
     | IF Expression THEN pstatements elsifs ELSE pstatements END Semicolon 
     | IF Expression THEN pstatements elsifs END Semicolon
+    | IF Expression THEN elsifs END Semicolon
     ;
 
 elsifs : elsifs elsif | elsif
@@ -266,7 +311,9 @@ elsif : ELSIF Expression THEN pstatements ;
 
 List : List Comma Identifier | Identifier ;
 
-Expressions : Expressions Comma Expression | Expression ;
+Expressions : Expressions Comma Expressionx | Expressionx ;
+
+Expressionx : Expression | Identifier Arrow Expression ;
 
 Simple : literal | Identifier | DecimalInt | BitStringLit | DecimalReal | BasedInt ;
 
@@ -278,15 +325,18 @@ Expression : literal | Identifier | DecimalInt
     | BitStringLit 
     | DecimalReal 
     | BasedInt
+    | DOTTED
     | LeftParen Expression RightParen
     | Expression DoubleStar Expression 
     | Expression Minus Expression 
+    | Expression MOD Expression 
     | Expression Slash Expression 
     | Expression Plus Expression 
     | Expression Star Expression 
     | Expression EQSym Expression
     | Expression NESym Expression
     | Expression GTSym Expression
+    | Expression LTSym Expression
     | Expression GESym Expression
     | Expression LESym Expression
     | Expression Ampersand Expression
@@ -296,24 +346,33 @@ Expression : literal | Identifier | DecimalInt
     | NOT Expression
     | LeftParen OTHERS Arrow Expression RightParen 
     | Identifier LeftParen Expressions RightParen 
-    | Identifier LeftParen Expression DOWNTO Expression  RightParen 
+    | Identifier BusDef  
     | Expression WHEN Expression ELSE Expression 
     | Identifier Apostrophe Identifier
     | Identifier Apostrophe RANGE
+    | LeftParen DecimalInt DOWNTO DecimalInt  Arrow literal RightParen
+    | LeftParen OTHERS  Arrow literal RightParen
+    | LeftParen DecimalInt Arrow literal Comma OTHERS  Arrow literal RightParen
+    | LeftParen Identifier Comma OTHERS  Arrow literal RightParen
     ;
 component : 
       COMPONENT Identifier generic_clause PORT LeftParen ports_list RightParen Semicolon END Semicolon 
     | COMPONENT Identifier PORT LeftParen ports_list RightParen Semicolon END Semicolon ; 
-
+range : Identifier RANGE Expression TO Expression Semicolon ;
 signal : 
       SIGNAL List Colon Identifier Semicolon 
-    | SIGNAL List Colon Identifier RANGE Expression TO Expression Semicolon 
+    | SIGNAL List Colon Identifier  range
     | SIGNAL List Colon Identifier BusDef Semicolon  
+    | SIGNAL List Colon Identifier BusDef VarAsgn Expression Semicolon  
     | SIGNAL List Colon Identifier VarAsgn Expression Semicolon 
     | CONSTANT Identifier Colon Identifier VarAsgn Expression Semicolon 
     | CONSTANT Identifier Colon Identifier BusDef  VarAsgn Expression Semicolon 
     | CONSTANT Identifier Colon Identifier VarAsgn ConstList Semicolon ;
 
+constant :
+      CONSTANT Identifier Colon Identifier VarAsgn Expression Semicolon 
+    | CONSTANT Identifier Colon Identifier BusDef  VarAsgn Expression Semicolon 
+    | CONSTANT Identifier Colon Identifier VarAsgn ConstList Semicolon ;
 
 ports_list : port_def Semicolon ports_list | port_def ; 
 

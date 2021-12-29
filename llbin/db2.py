@@ -38,7 +38,7 @@ def dealVsignals(dbscan):
             elif Item[0] == 'constant':
                 Mod.localparams[Item[1]] = Item[2]
                 Vsignals.pop(ind)
-            elif Item[0] == 'signal':
+            elif Item[0].lower() == 'signal':
                 Vsignals.pop(ind)
                 for Sig in Item[1]:
                     if Item[2] == 'std_logic':
@@ -230,7 +230,7 @@ def splitElsif(More):
 
 
 RESERVED = ['int']
-OPS = {'<=':'<=','**':'**','GTSym':'>','GESym':'>=','XOR':'^','Star':'*','Slash':'/','+':'+','-':'-','*':'*','/':'/','AND':'&','OR':'|','EQSym':'==','/=':'!=','Ampersand':'&'}
+OPS = {'LTSym':'<','MOD':'%','<=':'<=','**':'**','GTSym':'>','GESym':'>=','XOR':'^','Star':'*','Slash':'/','+':'+','-':'-','*':'*','/':'/','AND':'&','OR':'|','EQSym':'==','/=':'!=','Ampersand':'&'}
 def seq_expr(Code):
     if type(Code) is str: 
         if (Code[0] == "'") and(Code[-1]=="'"):
@@ -245,6 +245,7 @@ def seq_expr(Code):
     if Code==[]: return 0;
     if (type(Code) is list)and(len(Code)==1):
         return seq_expr(Code[0])
+#    print('SEQ_EXPR',Code)
     if type(Code) is tuple:
         if Code[0]=='event':
             return ('function','edge',[Code[1]])
@@ -270,8 +271,17 @@ def seq_expr(Code):
             Bus = Code[1]
             if Bus == 'std_logic_vector':
                 return seq_expr(Code[2])
+            if Bus == 'signed':
+                return seq_expr(Code[2])
+            if Bus == 'unsigned':
+                return seq_expr(Code[2])
             if Bus in ['to_integer','to_unsigned']:
                 return seq_expr(Code[2][0])
+            if len(Code[2])>1:
+                Res = []
+                for Item in Code[2]:
+                    Res.append(seq_expr(Item))
+                return ('funcall',Bus,Res)
 
             Ind = seq_expr(Code[2])
             return ('subbit',Bus,Ind)
